@@ -21,17 +21,46 @@ const db = new Pool({
 const groupId = "pulseboard-worker-1";
 const latestByDevice = new Map();
 
+function calculateStatus(temp, humidity, pressure) {
+  const isTempCritical = temp > 85 || temp < 10;
+  const isHumidityCritical = humidity > 90 || humidity < 10;
+  const isPressureCritical = pressure > 1025 || pressure < 970;
+
+  const isTempWarning = temp > 70 || temp < 15;
+  const isHumidityWarning = humidity > 80 || humidity < 20;
+  const isPressureWarning = pressure > 1018 || pressure < 980;
+
+  if (isTempCritical || isHumidityCritical || isPressureCritical) {
+    return "CRITICAL";
+  } else if (isTempWarning || isHumidityWarning || isPressureWarning) {
+    return "WARNING";
+  } else {
+    return "OK";
+  }
+}
+
 (async () => {
   const consumer = kafka.consumer({ groupId });
   await consumer.connect();
-  console.log("✅ Worker connected to Kafka");
+  console.log(" Worker connected to Kafka");
   await consumer.subscribe({ topic, fromBeginning: false });
 
   await consumer.run({
     eachMessage: async ({ message }) => {
       try {
         const payload = JSON.parse(message.value.toString());
-        latestByDevice.set(payload.deviceId, payload);
+        const status = calculateStatus(
+          payload.temperature,
+          payload.humidity,
+          payload.pressure
+        );
+        if (status === "WARNING" || status === "CRITICAL") {
+          console.warn(
+            `[${status}] Anomaly detected from ${payload.deviceId} @ ${payload.timestamp} →`,
+            `T: ${payload.temperature}, H: ${payload.humidity}, P: ${payload.pressure}`
+          );
+        }
+        latestByDevice.set(payload.deviceId, { ...payload, status });
         const snapshot = Array.from(latestByDevice.values());
         await redis.set("latest-metrics", JSON.stringify(snapshot));
 
@@ -43,7 +72,11 @@ const latestByDevice = new Map();
             payload.temperature,
             payload.humidity,
             payload.pressure,
-            payload.status,
+            calculateStatus(
+              payload.temperature,
+              payload.humidity,
+              payload.pressure
+            ),
             payload.timestamp,
           ]
         );
