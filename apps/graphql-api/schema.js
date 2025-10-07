@@ -1,5 +1,5 @@
-const { GraphQLObjectType, GraphQLSchema, GraphQLList, GraphQLFloat, GraphQLString } = require('graphql');
-const pool = require('./db');
+import { GraphQLObjectType, GraphQLSchema, GraphQLList, GraphQLFloat, GraphQLString } from 'graphql';
+import pool from './db.js';
 
 const SensorMetricType = new GraphQLObjectType({
   name: 'SensorMetric',
@@ -47,6 +47,8 @@ const RootQuery = new GraphQLObjectType({
   },
 });
 
-module.exports = new GraphQLSchema({
+const schema = new GraphQLSchema({
   query: RootQuery,
 });
+
+export default schema;

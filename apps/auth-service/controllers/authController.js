@@ -1,38 +1,55 @@
-import bcrypt from 'bcrypt';
+import db from '../db.js';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-
-const users = [];
 
 export const register = async (req, res) => {
   const { name, email, password, org_id } = req.body;
-
   if (!name || !email || !password || !org_id) {
-    return res.status(400).json({ message: 'Missing required fields' });
+    return res.status(400).json({ error: 'All fields required' });
   }
 
-  const existing = users.find((u) => u.email === email && u.org_id === org_id);
-  if (existing) {
-    return res.status(409).json({ message: 'User already exists' });
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await db.query(
+      'INSERT INTO users (name, email, password, org_id, created_at) VALUES ($1, $2, $3, $4, NOW())',
+      [name, email, hashedPassword, org_id]
+    );
+
+    res.status(201).json({ message: 'User registered' });
+  } catch (err) {
+    console.error('Register error:', err);
+    res.status(500).json({ error: 'Registration failed' });
   }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  users.push({ name, email, password: hashedPassword, org_id });
-
-  return res.status(201).json({ message: 'User registered' });
 };
 
 export const login = async (req, res) => {
   const { email, password, org_id } = req.body;
+  try {
+    const result = await db.query(
+      'SELECT * FROM users WHERE email = $1 AND org_id = $2',
+      [email, org_id]
+    );
 
-  const user = users.find((u) => u.email === email && u.org_id === org_id);
-  if (!user) return res.status(401).json({ message: 'User not found' });
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) return res.status(401).json({ message: 'Invalid password' });
+    const user = result.rows[0];
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
-  const token = jwt.sign({ email, org_id }, process.env.JWT_SECRET, {
-    expiresIn: '1h',
-  });
+    const token = jwt.sign(
+      { id: user.id, email: user.email, org_id: user.org_id },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
 
-  res.json({ token });
+    res.json({ token });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Login failed' });
+  }
 };
