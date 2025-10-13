@@ -18,7 +18,7 @@ app.use(express.json());
 
 app.use("/graphql", authenticate, graphqlHTTP({
   schema,
-  graphiql: process.env.NODE_ENV !== "production", // Optional: disable GraphiQL in prod
+  graphiql: process.env.NODE_ENV !== "production", 
 }));
 
 const PORT = process.env.PORT || 4000;

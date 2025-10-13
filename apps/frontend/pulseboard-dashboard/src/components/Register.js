@@ -1,6 +1,8 @@
 import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 
-function Register({ onRegistered }) {
+function Register() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -21,7 +23,7 @@ function Register({ onRegistered }) {
     });
     if (res.ok) {
       alert("Registered successfully");
-      if (onRegistered) onRegistered();
+      navigate("/");
     } else {
       alert("Registration failed");
     }
@@ -58,6 +60,9 @@ function Register({ onRegistered }) {
         required
       />
       <button type="submit">Register</button>
+      <p>
+        Already have an account? <Link to="/">Login</Link>
+      </p>
     </form>
   );
 }

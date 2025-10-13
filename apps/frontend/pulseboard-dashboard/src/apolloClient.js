@@ -1,5 +1,14 @@
 import { ApolloClient, InMemoryCache, createHttpLink } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
+import { onError } from "@apollo/client/link/error";
+
+const errorLink = onError(({ networkError }) => {
+  if (networkError && networkError.statusCode === 403) {
+    localStorage.removeItem("token");
+    localStorage.removeItem("org_id");
+    window.location.href = "/";
+  }
+});
 
 const httpLink = createHttpLink({
   uri: "http://localhost:4000/graphql",
@@ -17,7 +26,7 @@ const authLink = setContext((_, { headers }) => {
 });
 
 const client = new ApolloClient({
-  link: authLink.concat(httpLink),
+  link: errorLink.concat(authLink).concat(httpLink),
   cache: new InMemoryCache(),
 });
 

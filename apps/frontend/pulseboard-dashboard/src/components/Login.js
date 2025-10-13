@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 function Login({ onLogin }) {
   const [formData, setFormData] = useState({
@@ -55,6 +55,9 @@ function Login({ onLogin }) {
         required
       />
       <button type="submit">Login</button>
+      <p>
+        Don't have an account? <Link to="/register">Register</Link>
+      </p>
     </form>
   );
 }

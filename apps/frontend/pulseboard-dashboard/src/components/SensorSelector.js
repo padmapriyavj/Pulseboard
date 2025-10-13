@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { gql, useQuery } from '@apollo/client';
+import React, { useEffect } from "react";
+import { gql, useQuery } from "@apollo/client";
 
 const SENSOR_TYPES_QUERY = gql`
   query GetSensorTypes($org_id: String!) {
@@ -14,7 +14,12 @@ function SensorSelector({ orgId, onSensorChange }) {
     variables: { org_id: orgId },
   });
 
-  const sensorTypes = [...new Set(data?.metrics.map((m) => m.sensor_type))];
+  if (loading) return <p>Loading sensors...</p>;
+  if (!data?.metrics?.length) return <p>No sensors found for this org.</p>;
+
+  const sensorTypes = [
+    ...(new Set(data?.metrics.map((m) => m.sensor_type)) || []),
+  ];
 
   return (
     <select onChange={(e) => onSensorChange(e.target.value)}>

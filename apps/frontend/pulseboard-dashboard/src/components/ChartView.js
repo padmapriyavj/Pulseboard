@@ -1,6 +1,13 @@
-import React from 'react';
-import { gql, useQuery } from '@apollo/client';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import React from "react";
+import { gql, useQuery } from "@apollo/client";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
 
 const METRICS_QUERY = gql`
   query GetMetrics($org_id: String!, $sensor_type: String!) {
@@ -12,15 +19,23 @@ const METRICS_QUERY = gql`
 `;
 
 function ChartView({ orgId, sensorType }) {
-  const { loading, data } = useQuery(METRICS_QUERY, {
+  const { loading, error, data } = useQuery(METRICS_QUERY, {
     variables: { org_id: orgId, sensor_type: sensorType },
-    pollInterval: 5000,  // Auto-refresh every 5 seconds
+    pollInterval: 5000, // Auto-refresh every 5 seconds
   });
 
-  const chartData = data?.metrics.map((m) => ({
-    ...m,
-    timestamp: new Date(parseInt(m.timestamp) * 1000).toLocaleTimeString(),
-  }));
+  if (loading) return <p>Loading chart...</p>;
+  if (error) return <p>Error loading chart: {error.message}</p>;
+
+  const chartData = data?.metrics.map((m) => {
+    const parsedDate = new Date(m.timestamp);
+    return {
+      ...m,
+      timestamp: isNaN(parsedDate)
+        ? "Invalid"
+        : parsedDate.toLocaleTimeString(),
+    };
+  });
 
   return (
     <LineChart width={800} height={300} data={chartData}>

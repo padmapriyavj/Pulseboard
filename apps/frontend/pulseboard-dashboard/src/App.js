@@ -1,6 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ApolloProvider } from "@apollo/client";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+
 import client from "./apolloClient";
 
 import Register from "./components/Register";
@@ -20,35 +26,47 @@ function Dashboard({ orgId }) {
   );
 }
 
-function App() {
-  const [orgId, setOrgId] = useState(localStorage.getItem("org_id"));
+function AppRoutes() {
+  const [orgId, setOrgId] = useState(() => localStorage.getItem("org_id"));
 
+  useEffect(() => {
+    const storedOrgId = localStorage.getItem("org_id");
+    setOrgId(storedOrgId);
+  }, []);
+
+  return (
+    <Routes>
+      <Route path="/register" element={<Register />} />
+      <Route
+        path="/"
+        element={
+          orgId ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <Login
+              onLogin={(org) => {
+                localStorage.setItem("org_id", org);
+                setOrgId(org);
+              }}
+            />
+          )
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          orgId ? <Dashboard orgId={orgId} /> : <Navigate to="/" replace />
+        }
+      />
+    </Routes>
+  );
+}
+
+function App() {
   return (
     <ApolloProvider client={client}>
       <Router>
-        <Routes>
-          <Route
-            path="/register"
-            element={
-              <Register onRegistered={() => (window.location.href = "/")} />
-            }
-          />
-          <Route
-            path="/"
-            element={
-              <Login
-                onLogin={(org) => {
-                  localStorage.setItem("org_id", org);
-                  setOrgId(org);
-                }}
-              />
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={orgId ? <Dashboard orgId={orgId} /> : <Navigate to="/" />}
-          />
-        </Routes>
+        <AppRoutes />
       </Router>
     </ApolloProvider>
   );
