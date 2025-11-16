@@ -1,6 +1,16 @@
-import { GraphQLObjectType, GraphQLSchema, GraphQLList, GraphQLFloat, GraphQLString } from 'graphql';
+import {
+  GraphQLObjectType,
+  GraphQLSchema,
+  GraphQLList,
+  GraphQLFloat,
+  GraphQLString,
+  GraphQLNonNull,
+  GraphQLInputObjectType,
+  GraphQLInt,
+} from 'graphql';
 import pool from './db.js';
 
+/** Existing type */
 const SensorMetricType = new GraphQLObjectType({
   name: 'SensorMetric',
   fields: () => ({
@@ -14,6 +24,34 @@ const SensorMetricType = new GraphQLObjectType({
   }),
 });
 
+/** New sensor config type */
+const SensorConfigType = new GraphQLObjectType({
+  name: 'Sensor',
+  fields: () => ({
+    id: { type: GraphQLInt },
+    org_id: { type: GraphQLString },
+    type: { type: GraphQLString },
+    min: { type: GraphQLFloat },
+    max: { type: GraphQLFloat },
+    unit: { type: GraphQLString },
+    status: { type: GraphQLString },
+  }),
+});
+
+/** Input for mutation */
+const SensorInputType = new GraphQLInputObjectType({
+  name: 'SensorInput',
+  fields: {
+    org_id: { type: new GraphQLNonNull(GraphQLString) },
+    type: { type: new GraphQLNonNull(GraphQLString) },
+    min: { type: GraphQLFloat },
+    max: { type: GraphQLFloat },
+    unit: { type: GraphQLString },
+    status: { type: GraphQLString },
+  },
+});
+
+/** Root Query */
 const RootQuery = new GraphQLObjectType({
   name: 'RootQueryType',
   fields: {
@@ -44,11 +82,51 @@ const RootQuery = new GraphQLObjectType({
         return res.rows;
       },
     },
+    getSensors: {
+      type: new GraphQLList(SensorConfigType),
+      args: {
+        org_id: { type: new GraphQLNonNull(GraphQLString) },
+      },
+      resolve: async (_, { org_id }) => {
+        const res = await pool.query(
+          'SELECT * FROM sensors WHERE org_id = $1 ORDER BY id DESC',
+          [org_id]
+        );
+        return res.rows;
+      },
+    },
   },
 });
 
+/** Mutations */
+const Mutation = new GraphQLObjectType({
+  name: 'Mutation',
+  fields: {
+    addSensor: {
+      type: SensorConfigType,
+      args: {
+        input: { type: SensorInputType },
+      },
+      resolve: async (_, { input }) => {
+        const { org_id, type, min, max, unit, status } = input;
+
+        const res = await pool.query(
+          `INSERT INTO sensors (org_id, type, min, max, unit, status)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING *`,
+          [org_id, type, min, max, unit, status]
+        );
+
+        return res.rows[0];
+      },
+    },
+  },
+});
+
+/** Export schema */
 const schema = new GraphQLSchema({
   query: RootQuery,
+  mutation: Mutation,
 });
 
 export default schema;

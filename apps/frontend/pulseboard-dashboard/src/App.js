@@ -1,85 +1,86 @@
-import React, { useState, useEffect } from "react";
+// src/App.js
+import React from "react";
 import { ApolloProvider } from "@apollo/client";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
-  useNavigate,
 } from "react-router-dom";
 
 import client from "./apolloClient";
+import { AuthProvider } from "./context/AuthContext";
+import { useAuth } from "./hooks/useAuth";
 
+// Auth Components
 import Register from "./components/Register";
 import Login from "./components/Login";
-import SensorSelector from "./components/SensorSelector";
-import ChartView from "./components/ChartView";
 
-function Dashboard({ orgId, onLogout }) {
-  const [sensorType, setSensorType] = useState(null);
+// Dashboard Layout
+import Dashboard from "./components/Dashboard/Dashboard";
 
-  return (
-    <>
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <h2>PulseBoard Dashboard</h2>
-        <button onClick={onLogout}>Logout</button>
-      </header>
+// Dashboard Pages
+import DashboardOverview from "./components/DashboardOverview";
+import SensorsPage from "./components/Dashboard/SensorsPage";
 
-      <SensorSelector orgId={orgId} onSensorChange={setSensorType} />
-      {sensorType && <ChartView orgId={orgId} sensorType={sensorType} />}
-    </>
-  );
+// Protected Route Component
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        minHeight: "100vh",
+        backgroundColor: "#1a1a1a",
+        color: "#e2e8f0",
+      }}>
+        Loading...
+      </div>
+    );
+  }
+
+  return isAuthenticated ? children : <Navigate to="/" replace />;
 }
 
+// Routes Component
 function AppRoutes() {
-  const navigate = useNavigate(); 
-  const [orgId, setOrgId] = useState(() => localStorage.getItem("org_id"));
-
-  useEffect(() => {
-    const storedOrgId = localStorage.getItem("org_id");
-    setOrgId(storedOrgId);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem("org_id");
-    setOrgId(null);
-    navigate("/"); 
-  };
+  const { isAuthenticated } = useAuth();
 
   return (
     <Routes>
-      <Route path="/register" element={<Register />} />
+      {/* Auth Routes */}
+      <Route
+        path="/register"
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register />}
+      />
       <Route
         path="/"
-        element={
-          orgId ? (
-            <Navigate to="/dashboard" replace />
-          ) : (
-            <Login
-              onLogin={(org) => {
-                localStorage.setItem("org_id", org);
-                setOrgId(org);
-              }}
-            />
-          )
-        }
+        element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />}
       />
+
+      {/* Dashboard Routes */}
       <Route
         path="/dashboard"
         element={
-          orgId ? (
-            <Dashboard orgId={orgId} onLogout={handleLogout} />
-          ) : (
-            <Navigate to="/" replace />
-          )
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
         }
-      />
+      >
+        <Route index element={<DashboardOverview />} />
+        <Route path="sensors" element={<SensorsPage />}/>
+        {/* Future routes */}
+        {/* <Route path="sensors" element={<SensorsPage />} />
+        <Route path="alerts" element={<AlertsPage />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="settings" element={<SettingsPage />} /> */}
+      </Route>
+
+      {/* Catch all */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
@@ -87,9 +88,11 @@ function AppRoutes() {
 function App() {
   return (
     <ApolloProvider client={client}>
-      <Router>
-        <AppRoutes />
-      </Router>
+      <AuthProvider>
+        <Router>
+          <AppRoutes />
+        </Router>
+      </AuthProvider>
     </ApolloProvider>
   );
 }

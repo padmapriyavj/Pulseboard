@@ -1,8 +1,10 @@
 import jwt from "jsonwebtoken";
 
 export default function authenticate(req, res, next) {
-  const authHeader = req.headers.authorization;
+  console.log("Incoming Authorization Header:", req.headers.authorization);
 
+  const authHeader = req.headers.authorization;
+  console.log("JWT header:", authHeader);
   if (!authHeader?.startsWith("Bearer ")) {
     return res
       .status(401)

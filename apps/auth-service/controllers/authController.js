@@ -33,7 +33,7 @@ export const register = async (req, res) => {
     res.status(201).json({ message: "User registered successfully" });
   } catch (err) {
     console.error("Register error:", err);
-    res.status(500).json({ error: "Registration failed" });
+    res.status(500).json({ error: err.message });
   }
 };
 
@@ -58,8 +58,9 @@ export const login = async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, org_id: user.org_id },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "1d" }
     );
+    console.log("Generated token:", token);
 
     res.json({ token });
   } catch (err) {
