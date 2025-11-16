@@ -18,6 +18,7 @@ app.use(
 app.use(bodyParser.json());
 
 app.use("/auth", authRoutes);
+console.log("Auth Service JWT_SECRET:", process.env.JWT_SECRET);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () =>

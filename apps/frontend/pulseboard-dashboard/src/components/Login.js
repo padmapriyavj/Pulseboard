@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import {useAuth} from "../hooks/useAuth"
 
-function Login({ onLogin }) {
+function Login() {
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -33,7 +35,7 @@ function Login({ onLogin }) {
       if (res.ok) {
         localStorage.setItem("token", data.token);
         localStorage.setItem("org_id", formData.org_id);
-        onLogin(formData.org_id);
+        login(data.token, formData.org_id, data.userName || "User");
         navigate("/dashboard");
       } else {
         setError(data.message || "Login failed");

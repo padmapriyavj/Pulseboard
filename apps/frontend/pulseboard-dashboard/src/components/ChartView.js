@@ -21,14 +21,14 @@ const METRICS_QUERY = gql`
 function ChartView({ orgId, sensorType }) {
   const { loading, error, data } = useQuery(METRICS_QUERY, {
     variables: { org_id: orgId, sensor_type: sensorType },
-    pollInterval: 5000, // Auto-refresh every 5 seconds
+    pollInterval: 5000, 
   });
 
   if (loading) return <p>Loading chart...</p>;
   if (error) return <p>Error loading chart: {error.message}</p>;
 
   const chartData = data?.metrics.map((m) => {
-    const parsedDate = new Date(m.timestamp);
+    const parsedDate = new Date(m. W);
     return {
       ...m,
       timestamp: isNaN(parsedDate)

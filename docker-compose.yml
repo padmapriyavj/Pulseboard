@@ -21,6 +21,7 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
   timescaledb:
     image: timescale/timescaledb-ha:pg15-latest
+    platform: linux/amd64
     container_name: timescaledb
     ports:
       - "5433:5432"
@@ -30,6 +31,25 @@ services:
       POSTGRES_PASSWORD: admin
     volumes:
       - timescaledb-data:/var/lib/postgresql/data
-
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+  auth-service:
+    build:
+      context: ./apps/auth-service
+    ports:
+      - "5001:5001"
+    environment:
+      - .env.shared
+    depends_on:
+      - timescaledb
+  graphql-api:
+    build:
+      context: ./apps/graphql-api
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env.shared
+    depends_on:
+      - timescaledb
+      - auth-service
 volumes:
   timescaledb-data:
