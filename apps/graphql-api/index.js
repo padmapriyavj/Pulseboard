@@ -10,6 +10,9 @@ dotenv.config();
 const app = express();
 console.log("GraphQL API JWT_SECRET:", process.env.JWT_SECRET);
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 app.use(
   cors({
     origin: "http://localhost:3000",
@@ -20,6 +23,10 @@ app.use(
 // Check if token is present
 app.use("/graphql", (req, res, next) => {
   console.log("🔐 Incoming token:", req.headers.authorization);
+  if (req.body && req.body.query) {
+    console.log("📝 GraphQL Query:", req.body.query);
+    console.log("📝 GraphQL Variables:", JSON.stringify(req.body.variables, null, 2));
+  }
   next();
 });
 
@@ -32,6 +39,15 @@ app.use(
   graphqlHTTP({
     schema,
     graphiql: process.env.NODE_ENV !== "production",
+    customFormatErrorFn: (err) => {
+      console.error("GraphQL Error:", err);
+      return {
+        message: err.message,
+        locations: err.locations,
+        path: err.path,
+        extensions: err.extensions,
+      };
+    },
   })
 );
 
