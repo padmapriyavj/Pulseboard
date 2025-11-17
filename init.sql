@@ -12,12 +12,51 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS sensors (
   id SERIAL PRIMARY KEY,
   org_id VARCHAR NOT NULL,
+  name VARCHAR,
   type VARCHAR NOT NULL,
   min NUMERIC,
   max NUMERIC,
   unit VARCHAR,
-  status VARCHAR
+  status VARCHAR,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  delete_status BOOLEAN DEFAULT FALSE
 );
+
+-- Add name column to existing sensors table if it doesn't exist
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'sensors' AND column_name = 'name'
+  ) THEN
+    ALTER TABLE sensors ADD COLUMN name VARCHAR;
+  END IF;
+  
+  -- Add created_at column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'sensors' AND column_name = 'created_at'
+  ) THEN
+    ALTER TABLE sensors ADD COLUMN created_at TIMESTAMPTZ DEFAULT NOW();
+  END IF;
+  
+  -- Add updated_at column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'sensors' AND column_name = 'updated_at'
+  ) THEN
+    ALTER TABLE sensors ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
+  END IF;
+  
+  -- Add delete_status column if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'sensors' AND column_name = 'delete_status'
+  ) THEN
+    ALTER TABLE sensors ADD COLUMN delete_status BOOLEAN DEFAULT FALSE;
+  END IF;
+END $$;
 
 DROP TABLE IF EXISTS sensor_metrics;
 
