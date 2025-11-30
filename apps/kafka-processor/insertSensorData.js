@@ -7,6 +7,7 @@ async function insertSensorData(data) {
       value, unit, status, timestamp
     )
     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    ON CONFLICT (device_id, timestamp) DO NOTHING
   `;
 
   const values = [
@@ -19,7 +20,12 @@ async function insertSensorData(data) {
     data.timestamp,
   ];
 
-  await pool.query(query, values);
+  try {
+    await pool.query(query, values);
+  } catch (error) {
+    console.error('Error inserting sensor data:', error);
+    throw error;
+  }
 }
 
 module.exports = insertSensorData;

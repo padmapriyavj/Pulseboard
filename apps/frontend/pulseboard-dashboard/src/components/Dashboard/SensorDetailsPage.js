@@ -33,18 +33,19 @@ const SensorDetailsPage = () => {
   const sensor = sensorData?.getSensor;
 
   // Live metrics query (updates every 5 seconds)
-  const { loading: metricsLoading, data: metricsData, refetch: refetchMetrics } = useQuery(
-    GET_SENSOR_METRICS,
-    {
-      variables: {
-        org_id: orgId,
-        sensor_type: sensor?.type,
-        limit: 100,
-      },
-      skip: !orgId || !sensor?.type,
-      pollInterval: 5000, // Poll every 5 seconds
-    }
-  );
+  const {
+    loading: metricsLoading,
+    data: metricsData,
+    refetch: refetchMetrics,
+  } = useQuery(GET_SENSOR_METRICS, {
+    variables: {
+      org_id: orgId,
+      sensor_type: sensor?.type,
+      limit: 100,
+    },
+    skip: !orgId || !sensor?.type,
+    pollInterval: 5000, // Poll every 5 seconds
+  });
 
   // Convert datetime-local format to ISO string for database query
   const formatDateTimeForQuery = useMemo(() => {
@@ -64,24 +65,27 @@ const SensorDetailsPage = () => {
   }, []);
 
   // Filtered metrics query (for time range)
-  const fromTimeISO = showTimeRange && fromTime ? formatDateTimeForQuery(fromTime) : null;
-  const toTimeISO = showTimeRange && toTime ? formatDateTimeForQuery(toTime) : null;
+  const fromTimeISO =
+    showTimeRange && fromTime ? formatDateTimeForQuery(fromTime) : null;
+  const toTimeISO =
+    showTimeRange && toTime ? formatDateTimeForQuery(toTime) : null;
 
-  const { loading: filteredLoading, data: filteredData, refetch: refetchFiltered } = useQuery(
-    GET_SENSOR_METRICS,
-    {
-      variables: {
-        org_id: orgId,
-        sensor_type: sensor?.type,
-        from_time: fromTimeISO,
-        to_time: toTimeISO,
-        limit: 1000,
-      },
-      skip: !orgId || !sensor?.type || !showTimeRange || !fromTime || !toTime,
-      fetchPolicy: 'network-only', // Always fetch fresh data when filter is applied
-      notifyOnNetworkStatusChange: true, // Notify on loading state changes
-    }
-  );
+  const {
+    loading: filteredLoading,
+    data: filteredData,
+    refetch: refetchFiltered,
+  } = useQuery(GET_SENSOR_METRICS, {
+    variables: {
+      org_id: orgId,
+      sensor_type: sensor?.type,
+      from_time: fromTimeISO,
+      to_time: toTimeISO,
+      limit: 1000,
+    },
+    skip: !orgId || !sensor?.type || !showTimeRange || !fromTime || !toTime,
+    fetchPolicy: "network-only", // Always fetch fresh data when filter is applied
+    notifyOnNetworkStatusChange: true, // Notify on loading state changes
+  });
 
   // Helper function to safely parse and format dates
   const formatTimestamp = (timestamp) => {
@@ -117,6 +121,25 @@ const SensorDetailsPage = () => {
     }
   };
 
+  // Helper function to get human-readable time ago
+  const getTimeAgo = (timestamp) => {
+    if (!timestamp) return "Unknown time";
+    
+    const now = new Date();
+    const past = new Date(timestamp);
+    const diffMs = now - past;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    return past.toLocaleDateString();
+  };
+
+
   // Process chart data
   const chartData = useMemo(() => {
     const data = metricsData?.metrics || [];
@@ -128,7 +151,8 @@ const SensorDetailsPage = () => {
         const date = timestamp ? new Date(timestamp) : null;
         return {
           value: parseFloat(metric.value) || 0,
-          timestamp: date && !isNaN(date.getTime()) ? date.toLocaleTimeString() : "N/A",
+          timestamp:
+            date && !isNaN(date.getTime()) ? date.toLocaleTimeString() : "N/A",
           fullTimestamp: timestamp,
         };
       });
@@ -171,7 +195,8 @@ const SensorDetailsPage = () => {
           value: parseFloat(metric.value),
           timestamp: date && !isNaN(date.getTime()) ? date : null,
           timestampString: formatFullTimestamp(timestamp),
-          type: parseFloat(metric.value) < sensor.min ? "Below Min" : "Above Max",
+          type:
+            parseFloat(metric.value) < sensor.min ? "Below Min" : "Above Max",
         };
       });
   }, [metricsData, sensor]);
@@ -179,10 +204,10 @@ const SensorDetailsPage = () => {
   // Determine health status
   const getHealthStatus = () => {
     if (!sensor || !lastUpdated) return { status: "Unknown", color: "#9e9e9e" };
-    
+
     const now = new Date();
     const timeDiff = (now - lastUpdated) / 1000; // seconds
-    
+
     if (timeDiff > 60) return { status: "Critical", color: "#ef4444" };
     if (timeDiff > 30) return { status: "Warning", color: "#f59e0b" };
     return { status: "Normal", color: "#10b981" };
@@ -211,7 +236,7 @@ const SensorDetailsPage = () => {
           try {
             // Handle different timestamp formats
             let date;
-            if (typeof timestamp === 'string') {
+            if (typeof timestamp === "string") {
               date = new Date(timestamp);
             } else if (timestamp instanceof Date) {
               date = timestamp;
@@ -222,7 +247,11 @@ const SensorDetailsPage = () => {
               formattedTimestamp = date.toLocaleString();
             }
           } catch (error) {
-            console.error("Error formatting timestamp in table:", timestamp, error);
+            console.error(
+              "Error formatting timestamp in table:",
+              timestamp,
+              error
+            );
           }
         }
         return {
@@ -273,7 +302,7 @@ const SensorDetailsPage = () => {
       }
       setShowTimeRange(true);
       // Wait for state to update, then refetch
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       try {
         await refetchFiltered({
           org_id: orgId,
@@ -309,7 +338,10 @@ const SensorDetailsPage = () => {
     return (
       <div style={styles.container}>
         <div style={styles.error}>Sensor not found</div>
-        <button onClick={() => navigate("/dashboard/sensors")} style={styles.backButton}>
+        <button
+          onClick={() => navigate("/dashboard/sensors")}
+          style={styles.backButton}
+        >
           Back to Sensors
         </button>
       </div>
@@ -329,7 +361,10 @@ const SensorDetailsPage = () => {
           border-color: #B3B347 !important;
         }
       `}</style>
-      <button onClick={() => navigate("/dashboard/sensors")} style={styles.backButton}>
+      <button
+        onClick={() => navigate("/dashboard/sensors")}
+        style={styles.backButton}
+      >
         ← Back to Sensors
       </button>
 
@@ -362,7 +397,8 @@ const SensorDetailsPage = () => {
             <span
               style={{
                 ...styles.statusBadge,
-                backgroundColor: sensor.status === "active" ? "#4caf50" : "#f44336",
+                backgroundColor:
+                  sensor.status === "active" ? "#4caf50" : "#f44336",
               }}
             >
               {sensor.status}
@@ -490,7 +526,9 @@ const SensorDetailsPage = () => {
               {paginatedData.length === 0 && !filteredLoading ? (
                 <tr>
                   <td colSpan="3" style={styles.noData}>
-                    {showTimeRange ? "No data found for the selected time range" : "No data available"}
+                    {showTimeRange
+                      ? "No data found for the selected time range"
+                      : "No data available"}
                   </td>
                 </tr>
               ) : (
@@ -513,7 +551,9 @@ const SensorDetailsPage = () => {
           <div style={styles.paginationContainer}>
             <div style={styles.paginationInfo}>
               <span style={styles.paginationText}>
-                Showing {startIndex + 1} to {Math.min(endIndex, tableData.length)} of {tableData.length} entries
+                Showing {startIndex + 1} to{" "}
+                {Math.min(endIndex, tableData.length)} of {tableData.length}{" "}
+                entries
               </span>
               <div style={styles.itemsPerPageContainer}>
                 <label style={styles.itemsPerPageLabel}>Items per page:</label>
@@ -573,10 +613,16 @@ const SensorDetailsPage = () => {
                     <button
                       key={pageNum}
                       onClick={() => setCurrentPage(pageNum)}
-                      className={currentPage === pageNum ? "page-number-button active" : "page-number-button"}
+                      className={
+                        currentPage === pageNum
+                          ? "page-number-button active"
+                          : "page-number-button"
+                      }
                       style={{
                         ...styles.pageNumberButton,
-                        ...(currentPage === pageNum ? styles.pageNumberButtonActive : {}),
+                        ...(currentPage === pageNum
+                          ? styles.pageNumberButtonActive
+                          : {}),
                       }}
                     >
                       {pageNum}
@@ -585,12 +631,16 @@ const SensorDetailsPage = () => {
                 })}
               </div>
               <button
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                }
                 disabled={currentPage === totalPages}
                 className="pagination-button"
                 style={{
                   ...styles.paginationButton,
-                  ...(currentPage === totalPages ? styles.paginationButtonDisabled : {}),
+                  ...(currentPage === totalPages
+                    ? styles.paginationButtonDisabled
+                    : {}),
                 }}
               >
                 Next
@@ -601,7 +651,9 @@ const SensorDetailsPage = () => {
                 className="pagination-button"
                 style={{
                   ...styles.paginationButton,
-                  ...(currentPage === totalPages ? styles.paginationButtonDisabled : {}),
+                  ...(currentPage === totalPages
+                    ? styles.paginationButtonDisabled
+                    : {}),
                 }}
               >
                 Last
@@ -613,30 +665,34 @@ const SensorDetailsPage = () => {
 
       {/* Anomalies Section */}
       <div style={styles.anomaliesSection}>
-        <h2 style={styles.sectionTitle}>Recent Anomalies</h2>
+        <h2 style={styles.sectionTitle}>RECENT ANOMALIES (Last 7 days)</h2>
         {anomalies.length === 0 ? (
-          <p style={styles.noAnomalies}>No anomalies detected</p>
+          <div style={styles.anomalyListItem}>
+            <span style={styles.anomalyBullet}>└─</span>
+            <span style={styles.noAnomaliesText}>(None detected recently)</span>
+          </div>
         ) : (
           <div style={styles.anomaliesList}>
-            {anomalies.map((anomaly, index) => (
-              <div key={index} style={styles.anomalyItem}>
-                <span
-                  style={{
-                    ...styles.anomalyBadge,
-                    backgroundColor:
-                      anomaly.type === "Below Min" ? "#f59e0b" : "#ef4444",
-                  }}
-                >
-                  {anomaly.type}
-                </span>
-                <span style={styles.anomalyValue}>
-                  Value: {anomaly.value.toFixed(2)} {sensor.unit}
-                </span>
-                <span style={styles.anomalyTime}>
-                  {anomaly.timestampString || (anomaly.timestamp ? anomaly.timestamp.toLocaleString() : "N/A")}
-                </span>
-              </div>
-            ))}
+            {anomalies.map((anomaly, index) => {
+              const timeAgo = anomaly.timestamp 
+                ? getTimeAgo(anomaly.timestamp)
+                : "Unknown time";
+              
+              const description = anomaly.type === "Below Min"
+                ? `${sensor.type} dropped to ${anomaly.value.toFixed(1)}${sensor.unit}`
+                : `${sensor.type} spike to ${anomaly.value.toFixed(1)}${sensor.unit}`;
+
+              return (
+                <div key={index} style={styles.anomalyListItem}>
+                  <span style={styles.anomalyBullet}>•</span>
+                  <span style={styles.anomalyText}>
+                    <span style={styles.anomalyTimeAgo}>{timeAgo}</span>
+                    <span style={styles.anomalyDash}> - </span>
+                    <span style={styles.anomalyDescription}>{description}</span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -842,14 +898,33 @@ const styles = {
     borderRadius: "8px",
     border: "1px solid #3a3a3a",
   },
+  anomalyBullet: {
+    color: "#FFFF66",
+    fontSize: "16px",
+    fontWeight: "bold",
+    minWidth: "20px",
+  },
   noAnomalies: {
     color: "#9e9e9e",
     fontStyle: "italic",
   },
+  anomalyText: {
+    color: "#e2e8f0",
+    flex: 1,
+    lineHeight: "1.5",
+  },
   anomaliesList: {
     display: "flex",
     flexDirection: "column",
+    gap: "0.5rem",
+    marginTop: "1rem",
+  },
+  anomalyListItem: {
+    display: "flex",
+    alignItems: "flex-start",
     gap: "0.75rem",
+    padding: "0.5rem 0",
+    fontSize: "14px",
   },
   anomalyItem: {
     display: "flex",
@@ -858,6 +933,20 @@ const styles = {
     padding: "0.75rem",
     backgroundColor: "#1a1a1a",
     borderRadius: "6px",
+  },
+  anomalyTimeAgo: {
+    color: "#9e9e9e",
+    fontWeight: "500",
+  },
+  anomalyDash: {
+    color: "#9e9e9e",
+  },
+  anomalyDescription: {
+    color: "#e2e8f0",
+  },
+  noAnomaliesText: {
+    color: "#9e9e9e",
+    fontStyle: "italic",
   },
   anomalyBadge: {
     padding: "0.25rem 0.75rem",
@@ -957,4 +1046,3 @@ const styles = {
 };
 
 export default SensorDetailsPage;
-
