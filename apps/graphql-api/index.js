@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import { graphqlHTTP } from "express-graphql";
 import schema from "./schema.js";
-import authenticate from "../auth-service/middleware/auth.js";
+import authenticate from "./middleware/auth.js";
 
 dotenv.config();
 
