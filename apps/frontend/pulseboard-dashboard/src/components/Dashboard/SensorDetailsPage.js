@@ -14,8 +14,17 @@ import {
 } from "recharts";
 import { GET_SENSOR, GET_SENSOR_METRICS } from "../../graphql/sensorDetails";
 import { useAuth } from "../../hooks/useAuth";
+import { useMutation, gql } from "@apollo/client";
+
+const LOG_SENSOR_ACCESS = gql`
+  mutation LogAccess($sensor_id: Int!, $org_id: String!) {
+    logSensorAccess(sensor_id: $sensor_id, org_id: $org_id)
+  }
+`;
 
 const SensorDetailsPage = () => {
+  const [logAccess] = useMutation(LOG_SENSOR_ACCESS);
+
   const { id } = useParams();
   const navigate = useNavigate();
   const { orgId } = useAuth();
@@ -124,7 +133,7 @@ const SensorDetailsPage = () => {
   // Helper function to get human-readable time ago
   const getTimeAgo = (timestamp) => {
     if (!timestamp) return "Unknown time";
-    
+
     const now = new Date();
     const past = new Date(timestamp);
     const diffMs = now - past;
@@ -133,12 +142,13 @@ const SensorDetailsPage = () => {
     const diffDays = Math.floor(diffMs / 86400000);
 
     if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    if (diffMins < 60)
+      return `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
+    if (diffHours < 24)
+      return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`;
     return past.toLocaleDateString();
   };
-
 
   // Process chart data
   const chartData = useMemo(() => {
@@ -270,7 +280,10 @@ const SensorDetailsPage = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [showTimeRange, fromTime, toTime]);
+    if (sensor?.id && orgId) {
+      logAccess({ variables: { sensor_id: sensor.id, org_id: orgId } });
+    }
+  }, [showTimeRange, fromTime, toTime, sensor?.id, orgId, logAccess]);
 
   // Download data as CSV
   const handleDownload = () => {
@@ -674,13 +687,18 @@ const SensorDetailsPage = () => {
         ) : (
           <div style={styles.anomaliesList}>
             {anomalies.map((anomaly, index) => {
-              const timeAgo = anomaly.timestamp 
+              const timeAgo = anomaly.timestamp
                 ? getTimeAgo(anomaly.timestamp)
                 : "Unknown time";
-              
-              const description = anomaly.type === "Below Min"
-                ? `${sensor.type} dropped to ${anomaly.value.toFixed(1)}${sensor.unit}`
-                : `${sensor.type} spike to ${anomaly.value.toFixed(1)}${sensor.unit}`;
+
+              const description =
+                anomaly.type === "Below Min"
+                  ? `${sensor.type} dropped to ${anomaly.value.toFixed(1)}${
+                      sensor.unit
+                    }`
+                  : `${sensor.type} spike to ${anomaly.value.toFixed(1)}${
+                      sensor.unit
+                    }`;
 
               return (
                 <div key={index} style={styles.anomalyListItem}>

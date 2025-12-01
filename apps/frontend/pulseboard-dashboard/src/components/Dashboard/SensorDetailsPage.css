@@ -1,0 +1,199 @@
+/* SensorDetailsPage.css */
+
+.sensor-page-container {
+    padding: 2rem;
+    color: #e2e8f0;
+    font-family: sans-serif;
+    background-color: #1a1a1a;
+    min-height: 100vh;
+  }
+  
+  .back-button {
+    padding: 0.5rem 1rem;
+    background-color: #2a2a2a;
+    color: #e2e8f0;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 1.5rem;
+    font-size: 14px;
+  }
+  
+  .sensor-header {
+    background-color: #2a2a2a;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    border: 1px solid #3a3a3a;
+  }
+  
+  .sensor-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  
+  .sensor-title {
+    font-size: 28px;
+    font-weight: 600;
+    color: #ffff66;
+    margin: 0;
+  }
+  
+  .health-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+  }
+  
+  .sensor-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    margin-top: 1rem;
+  }
+  
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .info-label {
+    font-size: 12px;
+    color: #9e9e9e;
+  }
+  
+  .info-value {
+    font-size: 16px;
+    color: #e2e8f0;
+    font-weight: 500;
+  }
+  
+  .status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+  }
+  
+  .graph-section,
+  .table-section,
+  .anomalies-section {
+    background-color: #2a2a2a;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    border: 1px solid #3a3a3a;
+  }
+  
+  .graph-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  
+  .section-title {
+    font-size: 20px;
+    font-weight: 500;
+    color: #e2e8f0;
+    margin: 0;
+  }
+  
+  .stats {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 14px;
+    color: #9e9e9e;
+  }
+  
+  .time-range-controls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  
+  .time-input {
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #3a3a3a;
+    background-color: #1a1a1a;
+    color: #e2e8f0;
+    font-size: 14px;
+  }
+  
+  .filter-button,
+  .clear-button,
+  .download-button {
+    padding: 0.5rem 1rem;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  
+  .filter-button {
+    background-color: #2196f3;
+  }
+  
+  .clear-button {
+    background-color: #757575;
+  }
+  
+  .download-button {
+    background-color: #4caf50;
+  }
+  
+  .sensor-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+  }
+  
+  .sensor-table th,
+  .sensor-table td {
+    padding: 1rem;
+    text-align: left;
+    font-size: 14px;
+    color: #e2e8f0;
+  }
+  
+  .sensor-table th {
+    background-color: #1a1a1a;
+    color: #ffff66;
+    border-bottom: 2px solid #3a3a3a;
+  }
+  
+  .sensor-table tr {
+    border-bottom: 1px solid #3a3a3a;
+  }
+  
+  .no-data {
+    padding: 2rem;
+    text-align: center;
+    color: #9e9e9e;
+  }
+  
+  .anomaly-item {
+    display: flex;
+    gap: 1rem;
+    font-size: 14px;
+    color: #e2e8f0;
+    padding: 0.5rem 0;
+  }
+  
+  .pagination-controls {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
