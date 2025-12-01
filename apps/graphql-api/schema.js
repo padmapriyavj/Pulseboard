@@ -7,12 +7,11 @@ import {
   GraphQLNonNull,
   GraphQLInputObjectType,
   GraphQLInt,
-} from 'graphql';
-import pool from './db.js';
+} from "graphql";
+import pool from "./db.js";
 
-/** Existing type */
 const SensorMetricType = new GraphQLObjectType({
-  name: 'SensorMetric',
+  name: "SensorMetric",
   fields: () => ({
     device_id: { type: GraphQLString },
     org_id: { type: GraphQLString },
@@ -26,7 +25,7 @@ const SensorMetricType = new GraphQLObjectType({
 
 /** New sensor config type */
 const SensorConfigType = new GraphQLObjectType({
-  name: 'Sensor',
+  name: "Sensor",
   fields: () => ({
     id: { type: GraphQLInt },
     org_id: { type: GraphQLString },
@@ -41,7 +40,7 @@ const SensorConfigType = new GraphQLObjectType({
 
 /** Input for mutation */
 const SensorInputType = new GraphQLInputObjectType({
-  name: 'SensorInput',
+  name: "SensorInput",
   fields: {
     org_id: { type: new GraphQLNonNull(GraphQLString) },
     name: { type: GraphQLString },
@@ -55,7 +54,7 @@ const SensorInputType = new GraphQLInputObjectType({
 
 /** Input for update mutation */
 const SensorUpdateInputType = new GraphQLInputObjectType({
-  name: 'SensorUpdateInput',
+  name: "SensorUpdateInput",
   fields: {
     name: { type: GraphQLString },
     type: { type: GraphQLString },
@@ -66,9 +65,20 @@ const SensorUpdateInputType = new GraphQLInputObjectType({
   },
 });
 
+const SensorAccessLogType = new GraphQLObjectType({
+  name: "SensorAccessLog",
+  fields: () => ({
+    id: { type: GraphQLInt },
+    sensor_id: { type: GraphQLInt },
+    org_id: { type: GraphQLString },
+    accessed_at: { type: GraphQLString },
+    sensor: { type: SensorConfigType },
+  }),
+});
+
 /** Root Query */
 const RootQuery = new GraphQLObjectType({
-  name: 'RootQueryType',
+  name: "RootQueryType",
   fields: {
     metrics: {
       type: new GraphQLList(SensorMetricType),
@@ -103,16 +113,20 @@ const RootQuery = new GraphQLObjectType({
           values.push(args.to_time);
         }
 
-        const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+        const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
         const limit = args.limit || 1000;
-        const query = `SELECT * FROM sensor_metrics ${whereClause} ORDER BY timestamp DESC LIMIT $${values.length + 1}`;
+        const query = `SELECT * FROM sensor_metrics ${whereClause} ORDER BY timestamp DESC LIMIT $${
+          values.length + 1
+        }`;
         values.push(limit);
 
         const res = await pool.query(query, values);
         // Ensure timestamps are properly formatted as ISO strings
-        return res.rows.map(row => ({
+        return res.rows.map((row) => ({
           ...row,
-          timestamp: row.timestamp ? new Date(row.timestamp).toISOString() : null,
+          timestamp: row.timestamp
+            ? new Date(row.timestamp).toISOString()
+            : null,
         }));
       },
     },
@@ -123,7 +137,7 @@ const RootQuery = new GraphQLObjectType({
       },
       resolve: async (_, { org_id }) => {
         const res = await pool.query(
-          'SELECT * FROM sensors WHERE org_id = $1 AND delete_status = FALSE ORDER BY id DESC',
+          "SELECT * FROM sensors WHERE org_id = $1 AND delete_status = FALSE ORDER BY id DESC",
           [org_id]
         );
         return res.rows;
@@ -136,13 +150,34 @@ const RootQuery = new GraphQLObjectType({
       },
       resolve: async (_, { id }) => {
         const res = await pool.query(
-          'SELECT * FROM sensors WHERE id = $1 AND delete_status = FALSE',
+          "SELECT * FROM sensors WHERE id = $1 AND delete_status = FALSE",
           [id]
         );
         if (res.rows.length === 0) {
-          throw new Error('Sensor not found');
+          throw new Error("Sensor not found");
         }
         return res.rows[0];
+      },
+    },
+    recentlyAccessedSensors: {
+      type: new GraphQLList(SensorConfigType),
+      args: {
+        org_id: { type: new GraphQLNonNull(GraphQLString) },
+        limit: { type: GraphQLInt },
+      },
+      resolve: async (_, { org_id, limit = 5 }) => {
+        const res = await pool.query(
+          `
+        SELECT s.*
+        FROM sensor_access_log l
+        JOIN sensors s ON l.sensor_id = s.id
+        WHERE l.org_id = $1 AND s.delete_status = FALSE
+        ORDER BY l.accessed_at DESC
+        LIMIT $2
+          `,
+          [org_id, limit]
+        );
+        return res.rows;
       },
     },
   },
@@ -150,7 +185,7 @@ const RootQuery = new GraphQLObjectType({
 
 /** Mutations */
 const Mutation = new GraphQLObjectType({
-  name: 'Mutation',
+  name: "Mutation",
   fields: {
     addSensor: {
       type: SensorConfigType,
@@ -208,7 +243,7 @@ const Mutation = new GraphQLObjectType({
         }
 
         if (updates.length === 0) {
-          throw new Error('No fields to update');
+          throw new Error("No fields to update");
         }
 
         // Always update updated_at timestamp
@@ -216,16 +251,18 @@ const Mutation = new GraphQLObjectType({
         values.push(new Date());
 
         values.push(id);
-        const query = `UPDATE sensors SET ${updates.join(', ')} WHERE id = $${paramIndex} AND delete_status = FALSE RETURNING *`;
-        
+        const query = `UPDATE sensors SET ${updates.join(
+          ", "
+        )} WHERE id = $${paramIndex} AND delete_status = FALSE RETURNING *`;
+
         try {
           const res = await pool.query(query, values);
           if (res.rows.length === 0) {
-            throw new Error('Sensor not found');
+            throw new Error("Sensor not found");
           }
           return res.rows[0];
         } catch (error) {
-          console.error('Update sensor error:', error);
+          console.error("Update sensor error:", error);
           throw new Error(`Failed to update sensor: ${error.message}`);
         }
       },
@@ -245,9 +282,24 @@ const Mutation = new GraphQLObjectType({
           [new Date(), id]
         );
         if (res.rows.length === 0) {
-          throw new Error('Sensor not found or already deleted');
+          throw new Error("Sensor not found or already deleted");
         }
         return res.rows[0];
+      },
+    },
+    logSensorAccess: {
+      type: GraphQLString,
+      args: {
+        sensor_id: { type: new GraphQLNonNull(GraphQLInt) },
+        org_id: { type: new GraphQLNonNull(GraphQLString) },
+      },
+
+      resolve: async (_, { sensor_id, org_id }) => {
+        await pool.query(
+          `INSERT INTO sensor_access_log (sensor_id, org_id) VALUES ($1, $2)`,
+          [sensor_id, org_id]
+        );
+        return "Access logged";
       },
     },
   },

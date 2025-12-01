@@ -1,4 +1,3 @@
--- init.sql
 -- Users table required by auth-service
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
@@ -9,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Sensor configuration table
 CREATE TABLE IF NOT EXISTS sensors (
   id SERIAL PRIMARY KEY,
   org_id VARCHAR NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS sensors (
   delete_status BOOLEAN DEFAULT FALSE
 );
 
--- Add name column to existing sensors table if it doesn't exist
+-- Ensure sensors table is fully up to date
 DO $$ 
 BEGIN
   IF NOT EXISTS (
@@ -32,24 +32,21 @@ BEGIN
   ) THEN
     ALTER TABLE sensors ADD COLUMN name VARCHAR;
   END IF;
-  
-  -- Add created_at column if it doesn't exist
+
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
     WHERE table_name = 'sensors' AND column_name = 'created_at'
   ) THEN
     ALTER TABLE sensors ADD COLUMN created_at TIMESTAMPTZ DEFAULT NOW();
   END IF;
-  
-  -- Add updated_at column if it doesn't exist
+
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
     WHERE table_name = 'sensors' AND column_name = 'updated_at'
   ) THEN
     ALTER TABLE sensors ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
   END IF;
-  
-  -- Add delete_status column if it doesn't exist
+
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns 
     WHERE table_name = 'sensors' AND column_name = 'delete_status'
@@ -58,6 +55,7 @@ BEGIN
   END IF;
 END $$;
 
+-- Drop and recreate metrics table
 DROP TABLE IF EXISTS sensor_metrics;
 
 CREATE TABLE sensor_metrics (
@@ -74,7 +72,12 @@ SELECT create_hypertable('sensor_metrics', 'timestamp', if_not_exists => TRUE, m
 
 CREATE UNIQUE INDEX IF NOT EXISTS sensor_metrics_unique ON sensor_metrics (device_id, timestamp);
 
+CREATE TABLE IF NOT EXISTS sensor_access_log (
+  id SERIAL PRIMARY KEY,
+  sensor_id INT NOT NULL REFERENCES sensors(id),
+  org_id VARCHAR NOT NULL,
+  accessed_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-
-
-
+-- Optional: Index for faster recent access lookup
+CREATE INDEX IF NOT EXISTS idx_sensor_access_log_org ON sensor_access_log (org_id, accessed_at DESC);
