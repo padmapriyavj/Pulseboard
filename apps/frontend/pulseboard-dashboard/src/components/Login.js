@@ -7,7 +7,7 @@ function Login() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    org_id: "",
+    org_name: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -31,14 +31,18 @@ function Login() {
         body: JSON.stringify(formData),
       });
       const data = await res.json();
-      
+
       if (res.ok) {
+        // Store token and organization info
         localStorage.setItem("token", data.token);
-        localStorage.setItem("org_id", formData.org_id);
-        login(data.token, formData.org_id, data.userName || "User");
+        localStorage.setItem("org_id", data.organization.id);
+        localStorage.setItem("org_name", data.organization.name);
+        localStorage.setItem("userName", data.user.name);
+
+        login(data.token, data.organization.id, data.user.name);
         navigate("/dashboard");
       } else {
-        setError(data.message || "Login failed");
+        setError(data.error || "Login failed");
       }
     } catch (err) {
       setError("Network error. Please try again.");
@@ -131,12 +135,12 @@ function Login() {
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Organization ID</label>
+              <label style={styles.label}>Organization Name</label>
               <input
                 type="text"
-                name="org_id"
-                placeholder="Your organization ID"
-                value={formData.org_id}
+                name="org_name"
+                placeholder="Your organization name"
+                value={formData.org_name}
                 onChange={handleChange}
                 style={styles.input}
                 required

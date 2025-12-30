@@ -14,7 +14,7 @@ const SensorMetricType = new GraphQLObjectType({
   name: "SensorMetric",
   fields: () => ({
     device_id: { type: GraphQLString },
-    org_id: { type: GraphQLString },
+    org_id: { type: GraphQLInt },
     sensor_type: { type: GraphQLString },
     value: { type: GraphQLFloat },
     unit: { type: GraphQLString },
@@ -28,7 +28,7 @@ const SensorConfigType = new GraphQLObjectType({
   name: "Sensor",
   fields: () => ({
     id: { type: GraphQLInt },
-    org_id: { type: GraphQLString },
+    org_id: { type: GraphQLInt },
     name: { type: GraphQLString },
     type: { type: GraphQLString },
     min: { type: GraphQLFloat },
@@ -42,7 +42,7 @@ const SensorConfigType = new GraphQLObjectType({
 const SensorInputType = new GraphQLInputObjectType({
   name: "SensorInput",
   fields: {
-    org_id: { type: new GraphQLNonNull(GraphQLString) },
+    org_id: { type: new GraphQLNonNull(GraphQLInt) },
     name: { type: GraphQLString },
     type: { type: new GraphQLNonNull(GraphQLString) },
     min: { type: GraphQLFloat },
@@ -70,7 +70,7 @@ const SensorAccessLogType = new GraphQLObjectType({
   fields: () => ({
     id: { type: GraphQLInt },
     sensor_id: { type: GraphQLInt },
-    org_id: { type: GraphQLString },
+    org_id: { type: GraphQLInt },
     accessed_at: { type: GraphQLString },
     sensor: { type: SensorConfigType },
   }),
@@ -83,7 +83,7 @@ const RootQuery = new GraphQLObjectType({
     metrics: {
       type: new GraphQLList(SensorMetricType),
       args: {
-        org_id: { type: GraphQLString },
+        org_id: { type: GraphQLInt },
         sensor_type: { type: GraphQLString },
         from_time: { type: GraphQLString },
         to_time: { type: GraphQLString },
@@ -133,7 +133,7 @@ const RootQuery = new GraphQLObjectType({
     getSensors: {
       type: new GraphQLList(SensorConfigType),
       args: {
-        org_id: { type: new GraphQLNonNull(GraphQLString) },
+        org_id: { type: new GraphQLNonNull(GraphQLInt) },
       },
       resolve: async (_, { org_id }) => {
         const res = await pool.query(
@@ -162,7 +162,7 @@ const RootQuery = new GraphQLObjectType({
     recentlyAccessedSensors: {
       type: new GraphQLList(SensorConfigType),
       args: {
-        org_id: { type: new GraphQLNonNull(GraphQLString) },
+        org_id: { type: new GraphQLNonNull(GraphQLInt) },
         limit: { type: GraphQLInt },
       },
       resolve: async (_, { org_id, limit = 5 }) => {
@@ -291,7 +291,7 @@ const Mutation = new GraphQLObjectType({
       type: GraphQLString,
       args: {
         sensor_id: { type: new GraphQLNonNull(GraphQLInt) },
-        org_id: { type: new GraphQLNonNull(GraphQLString) },
+        org_id: { type: new GraphQLNonNull(GraphQLInt) },
       },
 
       resolve: async (_, { sensor_id, org_id }) => {

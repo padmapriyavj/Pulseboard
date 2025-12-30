@@ -1,17 +1,27 @@
+-- Organizations table
+CREATE TABLE IF NOT EXISTS organizations (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  org_slug TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Users table required by auth-service
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
-  email TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
   password TEXT NOT NULL,
-  org_id TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  org_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  role TEXT DEFAULT 'admin',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(org_id)
 );
 
 -- Sensor configuration table
 CREATE TABLE IF NOT EXISTS sensors (
   id SERIAL PRIMARY KEY,
-  org_id VARCHAR NOT NULL,
+  org_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   name VARCHAR,
   type VARCHAR NOT NULL,
   min NUMERIC,
@@ -61,7 +71,7 @@ DROP TABLE IF EXISTS sensor_metrics;
 CREATE TABLE sensor_metrics (
   device_id TEXT NOT NULL,
   sensor_type TEXT,
-  org_id TEXT,
+  org_id INTEGER REFERENCES organizations(id) ON DELETE CASCADE,
   value DOUBLE PRECISION,
   unit TEXT,
   status TEXT,
@@ -74,8 +84,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS sensor_metrics_unique ON sensor_metrics (devic
 
 CREATE TABLE IF NOT EXISTS sensor_access_log (
   id SERIAL PRIMARY KEY,
-  sensor_id INT NOT NULL REFERENCES sensors(id),
-  org_id VARCHAR NOT NULL,
+  sensor_id INT NOT NULL REFERENCES sensors(id) ON DELETE CASCADE,
+  org_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   accessed_at TIMESTAMPTZ DEFAULT NOW()
 );
 

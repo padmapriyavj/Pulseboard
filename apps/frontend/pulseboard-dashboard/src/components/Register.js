@@ -7,7 +7,7 @@ function Register() {
     name: "",
     email: "",
     password: "",
-    org_id: "",
+    org_name: "",
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -30,12 +30,19 @@ function Register() {
         body: JSON.stringify(formData),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
-        alert("Registered successfully");
-        navigate("/");
+        // Store token and organization info
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("org_id", data.organization.id);
+        localStorage.setItem("org_name", data.organization.name);
+        localStorage.setItem("userName", data.user.name);
+
+        alert("Organization and user registered successfully!");
+        navigate("/dashboard");
       } else {
-        const data = await res.json();
-        setError(data.message || "Registration failed");
+        setError(data.error || "Registration failed");
       }
     } catch (err) {
       setError("Network error. Please try again.");
@@ -141,12 +148,12 @@ function Register() {
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Organization ID</label>
+              <label style={styles.label}>Organization Name</label>
               <input
                 type="text"
-                name="org_id"
-                placeholder="Your organization ID"
-                value={formData.org_id}
+                name="org_name"
+                placeholder="Your organization name (e.g., Acme Corp)"
+                value={formData.org_name}
                 onChange={handleChange}
                 style={styles.input}
                 required
