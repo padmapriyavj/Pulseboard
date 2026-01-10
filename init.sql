@@ -8,6 +8,20 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Ensure users.org_id is TEXT type (fixes schema mismatch issue)
+DO $$ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' 
+    AND column_name = 'org_id' 
+    AND data_type != 'text'
+  ) THEN
+    -- Alter column type if it's not TEXT
+    ALTER TABLE users ALTER COLUMN org_id TYPE TEXT USING org_id::TEXT;
+  END IF;
+END $$;
+
 -- Sensor configuration table
 CREATE TABLE IF NOT EXISTS sensors (
   id SERIAL PRIMARY KEY,
@@ -70,6 +84,20 @@ CREATE TABLE sensor_metrics (
 
 SELECT create_hypertable('sensor_metrics', 'timestamp', if_not_exists => TRUE, migrate_data => TRUE);
 
+-- Ensure org_id column is TEXT type (fixes schema mismatch issue)
+DO $$ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'sensor_metrics' 
+    AND column_name = 'org_id' 
+    AND data_type != 'text'
+  ) THEN
+    -- Alter column type if it's not TEXT
+    ALTER TABLE sensor_metrics ALTER COLUMN org_id TYPE TEXT USING org_id::TEXT;
+  END IF;
+END $$;
+
 CREATE UNIQUE INDEX IF NOT EXISTS sensor_metrics_unique ON sensor_metrics (device_id, timestamp);
 
 CREATE TABLE IF NOT EXISTS sensor_access_log (
@@ -78,6 +106,20 @@ CREATE TABLE IF NOT EXISTS sensor_access_log (
   org_id VARCHAR NOT NULL,
   accessed_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure sensor_access_log.org_id is TEXT/VARCHAR type (fixes schema mismatch issue)
+DO $$ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'sensor_access_log' 
+    AND column_name = 'org_id' 
+    AND data_type NOT IN ('text', 'character varying')
+  ) THEN
+    -- Alter column type if it's not TEXT/VARCHAR
+    ALTER TABLE sensor_access_log ALTER COLUMN org_id TYPE TEXT USING org_id::TEXT;
+  END IF;
+END $$;
 
 -- Optional: Index for faster recent access lookup
 CREATE INDEX IF NOT EXISTS idx_sensor_access_log_org ON sensor_access_log (org_id, accessed_at DESC);

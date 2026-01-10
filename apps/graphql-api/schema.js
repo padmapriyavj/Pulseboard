@@ -166,13 +166,24 @@ const RootQuery = new GraphQLObjectType({
         limit: { type: GraphQLInt },
       },
       resolve: async (_, { org_id, limit = 5 }) => {
+        // Use a subquery with ROW_NUMBER to get the most recent access per sensor,
+        // then select only those rows and order by most recent access
         const res = await pool.query(
           `
-        SELECT s.*
-        FROM sensor_access_log l
-        JOIN sensors s ON l.sensor_id = s.id
-        WHERE l.org_id = $1 AND s.delete_status = FALSE
-        ORDER BY l.accessed_at DESC
+        WITH ranked_access AS (
+          SELECT 
+            s.*,
+            l.accessed_at,
+            ROW_NUMBER() OVER (PARTITION BY s.id ORDER BY l.accessed_at DESC) as rn
+          FROM sensor_access_log l
+          JOIN sensors s ON l.sensor_id = s.id
+          WHERE l.org_id = $1 AND s.delete_status = FALSE
+        )
+        SELECT 
+          id, org_id, name, type, min, max, unit, status, created_at, updated_at, delete_status
+        FROM ranked_access
+        WHERE rn = 1
+        ORDER BY accessed_at DESC
         LIMIT $2
           `,
           [org_id, limit]

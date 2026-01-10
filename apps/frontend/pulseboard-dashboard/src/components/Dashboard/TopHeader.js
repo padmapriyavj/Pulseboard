@@ -21,7 +21,7 @@ function TopHeader() {
     <header className="top-header">
       <div className="header-left">
         <div className="logo-section" onClick={handleDashboardClick}>
-          <div className="logo-icon">⚡</div>
+          <div className="logo-icon">PB</div>
           <h1 className="logo-text">PulseBoard</h1>
         </div>
       </div>
@@ -32,13 +32,14 @@ function TopHeader() {
 
       <div className="header-right">
         <div className="user-section">
-          <p className="user-greeting">Welcome, {userName}</p>
+          <p className="user-greeting">Welcome, {userName || "User"}</p>
           <div className="profile-menu-wrapper">
             <button
               className="avatar-button"
               onClick={() => setShowProfileMenu(!showProfileMenu)}
+              title={userName || "User"}
             >
-              {userName.charAt(0).toUpperCase()}
+              {(userName && userName.charAt(0).toUpperCase()) || "U"}
             </button>
 
             {showProfileMenu && (

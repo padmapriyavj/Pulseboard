@@ -280,10 +280,15 @@ const SensorDetailsPage = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
+  }, [showTimeRange, fromTime, toTime]);
+
+  // Log sensor access only once when the sensor page is first loaded
+  useEffect(() => {
     if (sensor?.id && orgId) {
       logAccess({ variables: { sensor_id: sensor.id, org_id: orgId } });
     }
-  }, [showTimeRange, fromTime, toTime, sensor?.id, orgId, logAccess]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sensor?.id, orgId]); // Only log when sensor or orgId changes, not on filter changes
 
   // Download data as CSV
   const handleDownload = () => {

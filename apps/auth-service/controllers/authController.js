@@ -55,14 +55,20 @@ export const login = async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
+    // Get user name - use name from database, or fallback to email username
+    const userName = user.name || user.email.split('@')[0];
+    console.log("User login - name from DB:", user.name, "computed userName:", userName);
+
     const token = jwt.sign(
-      { id: user.id, email: user.email, org_id: user.org_id },
+      { id: user.id, email: user.email, org_id: user.org_id, name: userName },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
-    console.log("Generated token:", token);
 
-    res.json({ token });
+    res.json({ 
+      token,
+      userName 
+    });
   } catch (err) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Login failed" });

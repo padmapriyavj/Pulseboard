@@ -404,11 +404,11 @@ const SensorsPage = () => {
           </tr>
         </thead>
         <tbody>
-                {filteredSensors.map((s) => (
+                {filteredSensors.map((s, index) => (
                   <React.Fragment key={s.id}>
                     {editingId === s.id ? (
                       <tr style={styles.editRow}>
-                        <td style={styles.td}>{s.id}</td>
+                        <td style={styles.td}>{index + 1}</td>
                         <td style={styles.td}>
                           <input
                             type="text"
@@ -492,7 +492,7 @@ const SensorsPage = () => {
                           navigate(`/dashboard/sensors/${s.id}`);
                         }}
                       >
-                        <td style={styles.td}>{s.id}</td>
+                        <td style={styles.td}>{index + 1}</td>
                         <td style={styles.td}>{s.name || "-"}</td>
                         <td style={styles.td}>{s.type}</td>
                         <td style={styles.td}>{s.min}</td>

@@ -48,27 +48,33 @@ function Register() {
     <div style={styles.container}>
       <div style={styles.leftPanel}>
         <div style={styles.brandingContent}>
-          <div style={styles.logoIcon}>⚡</div>
+          <div style={styles.logoIcon}>PB</div>
           <h1 style={styles.brandTitle}>PulseBoard</h1>
           <p style={styles.brandTagline}>Real-time IoT Sensor Monitoring</p>
           
           <div style={styles.featureList}>
             <div style={styles.featureItem}>
-              <span style={styles.featureIcon}>📊</span>
+              <div style={styles.featureIconWrapper}>
+                <span style={styles.featureIcon}>A</span>
+              </div>
               <div>
                 <h3 style={styles.featureTitle}>Real-time Analytics</h3>
                 <p style={styles.featureDesc}>Monitor your sensors in real-time</p>
               </div>
             </div>
             <div style={styles.featureItem}>
-              <span style={styles.featureIcon}>⚠️</span>
+              <div style={styles.featureIconWrapper}>
+                <span style={styles.featureIcon}>!</span>
+              </div>
               <div>
                 <h3 style={styles.featureTitle}>Smart Alerts</h3>
                 <p style={styles.featureDesc}>Get notified of anomalies instantly</p>
               </div>
             </div>
             <div style={styles.featureItem}>
-              <span style={styles.featureIcon}>📈</span>
+              <div style={styles.featureIconWrapper}>
+                <span style={styles.featureIcon}>H</span>
+              </div>
               <div>
                 <h3 style={styles.featureTitle}>Historical Data</h3>
                 <p style={styles.featureDesc}>Analyze trends and patterns</p>
@@ -134,8 +140,9 @@ function Register() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   style={styles.togglePassword}
+                  title={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? "🙈" : "👁️"}
+                  {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
             </div>
@@ -234,8 +241,22 @@ const styles = {
     borderRadius: "12px",
     border: "1px solid #B3B347",
   },
+  featureIconWrapper: {
+    width: "40px",
+    height: "40px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "8px",
+    background: "#B3B347",
+    color: "#1a1a1a",
+    fontSize: "24px",
+    fontWeight: "bold",
+    flexShrink: 0,
+  },
   featureIcon: {
-    fontSize: "32px",
+    fontSize: "20px",
+    color: "#1a1a1a",
   },
   featureTitle: {
     fontSize: "18px",
