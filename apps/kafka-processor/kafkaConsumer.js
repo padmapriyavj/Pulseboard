@@ -4,7 +4,7 @@ const insertSensorData = require("./insertSensorData");
 
 const kafka = new Kafka({
   clientId: "kafka-processor",
-  brokers: [process.env.KAFKA_BROKER],
+  brokers: [process.env.KAFKA_BROKER || 'localhost:9092'],
 });
 
 const consumer = kafka.consumer({ groupId: "sensor-processors" });

@@ -31,29 +31,36 @@ function chooseEdgeCase() {
   return 'normal';
 }
 
-function simulateSensorData(orgId) {
+// Global cache for stuck values per org and sensor type
+const stuckValueMap = {};
+
+function simulateSensorData(orgId, sensorType, customConfig = null) {
   const now = new Date().toISOString();
-  let stuckValueMap = {}; // cache for stuck values
+  
+  // Use custom config if provided, otherwise fall back to default config
+  const config = customConfig || sensorConfig[sensorType] || { min: 0, max: 100, unit: 'unit' };
+  
+  // Ensure min and max are numbers (database may return them as strings)
+  const min = Number(config.min) || 0;
+  const max = Number(config.max) || 100;
+  
+  const edgeCase = chooseEdgeCase();
+  const cacheKey = `${orgId}_${sensorType}`;
+  const prev = stuckValueMap[cacheKey];
+  const value = generateValueWithEdgeCases(min, max, edgeCase, prev);
 
-  return SENSORS.map(sensorType => {
-    const config = sensorConfig[sensorType] || { min: 0, max: 100, unit: 'unit' };
-    const edgeCase = chooseEdgeCase();
-    const prev = stuckValueMap[sensorType];
-    const value = generateValueWithEdgeCases(config.min, config.max, edgeCase, prev);
+  if (edgeCase === 'stuck') {
+    stuckValueMap[cacheKey] = value;
+  }
 
-    if (edgeCase === 'stuck') {
-      stuckValueMap[sensorType] = value;
-    }
-
-    return {
-      deviceId: uuidv4(),
-      sensorType,
-      value,
-      unit: config.unit,
-      timestamp: now,
-      orgId
-    };
-  });
+  return [{
+    deviceId: uuidv4(),
+    sensorType,
+    value: Number(value), // Ensure value is a number, not a string
+    unit: config.unit || 'unit',
+    timestamp: now,
+    orgId
+  }];
 }
 
 module.exports = simulateSensorData;

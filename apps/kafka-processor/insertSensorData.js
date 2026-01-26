@@ -10,11 +10,16 @@ async function insertSensorData(data) {
     ON CONFLICT (device_id, timestamp) DO NOTHING
   `;
 
+  // Ensure value is a number, not a string
+  const numericValue = data.value !== null && data.value !== undefined 
+    ? Number(data.value) 
+    : null;
+
   const values = [
     data.deviceId,
     data.sensorType,
     data.orgId,
-    data.value,
+    numericValue,
     data.unit,
     data.status || 'OK', 
     data.timestamp,
