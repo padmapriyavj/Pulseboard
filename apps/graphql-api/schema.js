@@ -7,6 +7,7 @@ import {
   GraphQLNonNull,
   GraphQLInputObjectType,
   GraphQLInt,
+  GraphQLBoolean,
 } from "graphql";
 import pool from "./db.js";
 
@@ -74,6 +75,27 @@ const SensorAccessLogType = new GraphQLObjectType({
     org_id: { type: GraphQLString },
     accessed_at: { type: GraphQLString },
     sensor: { type: SensorConfigType },
+  }),
+});
+
+/** Alert type */
+const AlertType = new GraphQLObjectType({
+  name: "Alert",
+  fields: () => ({
+    id: { type: GraphQLInt },
+    org_id: { type: GraphQLString },
+    sensor_id: { type: GraphQLInt },
+    sensor_name: { type: GraphQLString },
+    sensor_type: { type: GraphQLString },
+    alert_type: { type: GraphQLString },
+    severity: { type: GraphQLString },
+    message: { type: GraphQLString },
+    value: { type: GraphQLFloat },
+    threshold_min: { type: GraphQLFloat },
+    threshold_max: { type: GraphQLFloat },
+    acknowledged: { type: GraphQLBoolean },
+    acknowledged_at: { type: GraphQLString },
+    created_at: { type: GraphQLString },
   }),
 });
 
@@ -198,6 +220,108 @@ const RootQuery = new GraphQLObjectType({
         return res.rows;
       },
     },
+    getAlerts: {
+      type: new GraphQLList(AlertType),
+      args: {
+        org_id: { type: new GraphQLNonNull(GraphQLString) },
+        severity: { type: GraphQLString },
+        sensor_name: { type: GraphQLString },
+        date_from: { type: GraphQLString },
+        date_to: { type: GraphQLString },
+        limit: { type: GraphQLInt },
+        offset: { type: GraphQLInt },
+      },
+      resolve: async (_, { org_id, severity, sensor_name, date_from, date_to, limit = 50, offset = 0 }) => {
+        const where = [`org_id = $1`];
+        const values = [org_id];
+        let paramIndex = 2;
+
+        if (severity) {
+          where.push(`severity = $${paramIndex}`);
+          values.push(severity);
+          paramIndex++;
+        }
+
+        if (sensor_name) {
+          where.push(`sensor_name ILIKE $${paramIndex}`);
+          values.push(`%${sensor_name}%`);
+          paramIndex++;
+        }
+
+        if (date_from) {
+          where.push(`created_at >= $${paramIndex}`);
+          values.push(date_from);
+          paramIndex++;
+        }
+
+        if (date_to) {
+          // Add one day to include the entire "to" date
+          const toDate = new Date(date_to);
+          toDate.setDate(toDate.getDate() + 1);
+          where.push(`created_at < $${paramIndex}`);
+          values.push(toDate.toISOString());
+          paramIndex++;
+        }
+
+        const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+        const query = `
+          SELECT * FROM alerts 
+          ${whereClause}
+          ORDER BY created_at DESC 
+          LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+        values.push(limit, offset);
+
+        const res = await pool.query(query, values);
+        return res.rows.map((row) => ({
+          ...row,
+          acknowledged: Boolean(row.acknowledged),
+          created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
+          acknowledged_at: row.acknowledged_at ? new Date(row.acknowledged_at).toISOString() : null,
+        }));
+      },
+    },
+    getAlertSummary: {
+      type: new GraphQLObjectType({
+        name: "AlertSummary",
+        fields: () => ({
+          critical_count: { type: GraphQLInt },
+          warning_count: { type: GraphQLInt },
+          latest_critical_timestamp: { type: GraphQLString },
+          latest_warning_timestamp: { type: GraphQLString },
+        }),
+      }),
+      args: {
+        org_id: { type: new GraphQLNonNull(GraphQLString) },
+      },
+      resolve: async (_, { org_id }) => {
+        // Get counts and latest timestamps for Critical and Warning alerts
+        const result = await pool.query(
+          `
+          SELECT 
+            COUNT(*) FILTER (WHERE severity = 'Critical') as critical_count,
+            COUNT(*) FILTER (WHERE severity = 'Warning') as warning_count,
+            MAX(created_at) FILTER (WHERE severity = 'Critical') as latest_critical_timestamp,
+            MAX(created_at) FILTER (WHERE severity = 'Warning') as latest_warning_timestamp
+          FROM alerts
+          WHERE org_id = $1
+          `,
+          [org_id]
+        );
+
+        const row = result.rows[0];
+        return {
+          critical_count: parseInt(row.critical_count) || 0,
+          warning_count: parseInt(row.warning_count) || 0,
+          latest_critical_timestamp: row.latest_critical_timestamp 
+            ? new Date(row.latest_critical_timestamp).toISOString() 
+            : null,
+          latest_warning_timestamp: row.latest_warning_timestamp 
+            ? new Date(row.latest_warning_timestamp).toISOString() 
+            : null,
+        };
+      },
+    },
   },
 });
 
@@ -318,6 +442,47 @@ const Mutation = new GraphQLObjectType({
           [sensor_id, org_id]
         );
         return "Access logged";
+      },
+    },
+    acknowledgeAlert: {
+      type: AlertType,
+      args: {
+        alert_id: { type: new GraphQLNonNull(GraphQLInt) },
+      },
+      resolve: async (_, { alert_id }) => {
+        const res = await pool.query(
+          `UPDATE alerts 
+           SET acknowledged = TRUE, acknowledged_at = NOW()
+           WHERE id = $1 
+           RETURNING *`,
+          [alert_id]
+        );
+        if (res.rows.length === 0) {
+          throw new Error("Alert not found");
+        }
+        const row = res.rows[0];
+        return {
+          ...row,
+          acknowledged: Boolean(row.acknowledged),
+          created_at: row.created_at ? new Date(row.created_at).toISOString() : null,
+          acknowledged_at: row.acknowledged_at ? new Date(row.acknowledged_at).toISOString() : null,
+        };
+      },
+    },
+    deleteAlert: {
+      type: GraphQLString,
+      args: {
+        alert_id: { type: new GraphQLNonNull(GraphQLInt) },
+      },
+      resolve: async (_, { alert_id }) => {
+        const res = await pool.query(
+          `DELETE FROM alerts WHERE id = $1 RETURNING id`,
+          [alert_id]
+        );
+        if (res.rows.length === 0) {
+          throw new Error("Alert not found");
+        }
+        return "Alert deleted";
       },
     },
   },
