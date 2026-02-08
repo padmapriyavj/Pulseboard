@@ -16,6 +16,7 @@ const SensorMetricType = new GraphQLObjectType({
     device_id: { type: GraphQLString },
     org_id: { type: GraphQLString },
     sensor_type: { type: GraphQLString },
+    sensor_id: { type: GraphQLInt }, // Add sensor_id field
     value: { type: GraphQLFloat },
     unit: { type: GraphQLString },
     status: { type: GraphQLString },
@@ -85,6 +86,7 @@ const RootQuery = new GraphQLObjectType({
       args: {
         org_id: { type: GraphQLString },
         sensor_type: { type: GraphQLString },
+        sensor_id: { type: GraphQLInt }, // Add sensor_id argument
         from_time: { type: GraphQLString },
         to_time: { type: GraphQLString },
         limit: { type: GraphQLInt },
@@ -101,6 +103,11 @@ const RootQuery = new GraphQLObjectType({
         if (args.sensor_type) {
           where.push(`sensor_type = $${values.length + 1}`);
           values.push(args.sensor_type);
+        }
+
+        if (args.sensor_id) {
+          where.push(`sensor_id = $${values.length + 1}`);
+          values.push(args.sensor_id);
         }
 
         if (args.from_time) {

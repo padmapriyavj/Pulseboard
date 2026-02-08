@@ -49,10 +49,11 @@ const SensorDetailsPage = () => {
   } = useQuery(GET_SENSOR_METRICS, {
     variables: {
       org_id: orgId,
-      sensor_type: sensor?.type,
+      sensor_id: sensor?.id, // Query by specific sensor ID
+      sensor_type: sensor?.type, // Keep for backward compatibility
       limit: 100,
     },
-    skip: !orgId || !sensor?.type,
+    skip: !orgId || !sensor?.id,
     pollInterval: 5000, // Poll every 5 seconds
   });
 
@@ -86,12 +87,13 @@ const SensorDetailsPage = () => {
   } = useQuery(GET_SENSOR_METRICS, {
     variables: {
       org_id: orgId,
-      sensor_type: sensor?.type,
+      sensor_id: sensor?.id, // Query by specific sensor ID
+      sensor_type: sensor?.type, // Keep for backward compatibility
       from_time: fromTimeISO,
       to_time: toTimeISO,
       limit: 1000,
     },
-    skip: !orgId || !sensor?.type || !showTimeRange || !fromTime || !toTime,
+    skip: !orgId || !sensor?.id || !showTimeRange || !fromTime || !toTime,
     fetchPolicy: "network-only", // Always fetch fresh data when filter is applied
     notifyOnNetworkStatusChange: true, // Notify on loading state changes
   });

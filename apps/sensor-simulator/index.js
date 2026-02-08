@@ -5,51 +5,22 @@ const { connectProducer, sendSensorData } = require('./src/publisher');
 const pool = require('./db');
 
 /**
- * Get all organizations that have sensors configured
- * Returns array of { org_id, sensor_types[] }
+ * Get all individual sensors that need data generation
+ * Returns array of { id, org_id, name, type, min, max, unit }
  */
-async function getOrgsWithSensors() {
+async function getAllSensors() {
   try {
     const result = await pool.query(`
-      SELECT 
-        org_id,
-        ARRAY_AGG(DISTINCT type) as sensor_types
+      SELECT id, org_id, name, type, min, max, unit
       FROM sensors
       WHERE delete_status = FALSE
-      GROUP BY org_id
+      ORDER BY org_id, id
     `);
     
-    return result.rows.map(row => ({
-      org_id: row.org_id,
-      sensor_types: row.sensor_types || []
-    }));
+    return result.rows;
   } catch (error) {
-    console.error(chalk.red('Error fetching orgs with sensors:'), error);
-    // Fallback to all predefined orgs if database query fails
-    const { ORGS } = require('../../libs/shared-config');
-    return ORGS.map(org => ({ org_id: org.id, sensor_types: [] }));
-  }
-}
-
-/**
- * Get sensor config for a specific org and sensor type
- */
-async function getSensorConfig(orgId, sensorType) {
-  try {
-    const result = await pool.query(`
-      SELECT min, max, unit, type
-      FROM sensors
-      WHERE org_id = $1 AND type = $2 AND delete_status = FALSE
-      LIMIT 1
-    `, [orgId, sensorType]);
-    
-    if (result.rows.length > 0) {
-      return result.rows[0];
-    }
-    return null;
-  } catch (error) {
-    console.error(chalk.red(`Error fetching sensor config for ${orgId}/${sensorType}:`), error);
-    return null;
+    console.error(chalk.red('Error fetching sensors:'), error);
+    return [];
   }
 }
 
@@ -58,38 +29,53 @@ async function main() {
 
   await connectProducer();
 
-  // Initial fetch of orgs with sensors
-  let orgsWithSensors = await getOrgsWithSensors();
-  console.log(chalk.green(`✅ Found ${orgsWithSensors.length} organization(s) with sensors:`));
-  orgsWithSensors.forEach(org => {
-    console.log(chalk.cyan(`   - ${org.org_id}: ${org.sensor_types.length} sensor type(s)`));
+  // Initial fetch of all sensors
+  let allSensors = await getAllSensors();
+  console.log(chalk.green(`✅ Found ${allSensors.length} sensor(s) to generate data for:`));
+  const sensorsByOrg = {};
+  allSensors.forEach(sensor => {
+    if (!sensorsByOrg[sensor.org_id]) {
+      sensorsByOrg[sensor.org_id] = [];
+    }
+    sensorsByOrg[sensor.org_id].push(sensor);
+    console.log(chalk.cyan(`   - ${sensor.org_id}: ${sensor.name} (${sensor.type})`));
   });
 
-  // Refresh org list every 30 seconds to pick up new sensors/orgs
+  // Refresh sensor list every 30 seconds to pick up new sensors
   setInterval(async () => {
-    orgsWithSensors = await getOrgsWithSensors();
+    allSensors = await getAllSensors();
+    const newSensorsByOrg = {};
+    allSensors.forEach(sensor => {
+      if (!newSensorsByOrg[sensor.org_id]) {
+        newSensorsByOrg[sensor.org_id] = [];
+      }
+      newSensorsByOrg[sensor.org_id].push(sensor);
+    });
+    Object.keys(newSensorsByOrg).forEach(orgId => {
+      if (sensorsByOrg[orgId]?.length !== newSensorsByOrg[orgId].length) {
+        console.log(chalk.yellow(`📊 Updated sensor list for ${orgId}: ${newSensorsByOrg[orgId].length} sensor(s)`));
+      }
+    });
+    Object.assign(sensorsByOrg, newSensorsByOrg);
   }, 30000);
 
   // Generate and send data every 3 seconds
   setInterval(async () => {
-    for (const org of orgsWithSensors) {
-      // Generate data for each sensor type in this org
-      for (const sensorType of org.sensor_types) {
-        // Get sensor config (min, max, unit) from database
-        const config = await getSensorConfig(org.org_id, sensorType);
-        
-        if (config) {
-          // Generate data using org-specific sensor config
-          const simulatedData = simulateSensorData(org.org_id, sensorType, {
-            min: config.min,
-            max: config.max,
-            unit: config.unit
-          });
+    for (const sensor of allSensors) {
+      // Generate data for each individual sensor
+      const simulatedData = simulateSensorData(
+        sensor.org_id, 
+        sensor.type, 
+        {
+          min: sensor.min,
+          max: sensor.max,
+          unit: sensor.unit
+        },
+        sensor.id // Pass sensor ID
+      );
 
-          for (const reading of simulatedData) {
-            await sendSensorData(reading);
-          }
-        }
+      for (const reading of simulatedData) {
+        await sendSensorData(reading);
       }
     }
   }, 3000); // every 3s
