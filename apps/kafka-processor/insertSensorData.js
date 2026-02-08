@@ -3,10 +3,10 @@ const pool = require('./db');
 async function insertSensorData(data) {
   const query = `
     INSERT INTO sensor_metrics (
-      device_id, sensor_type, org_id,
+      device_id, sensor_type, org_id, sensor_id,
       value, unit, status, timestamp
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     ON CONFLICT (device_id, timestamp) DO NOTHING
   `;
 
@@ -19,6 +19,7 @@ async function insertSensorData(data) {
     data.deviceId,
     data.sensorType,
     data.orgId,
+    data.sensorId || null, // Include sensor_id if available
     numericValue,
     data.unit,
     data.status || 'OK', 
