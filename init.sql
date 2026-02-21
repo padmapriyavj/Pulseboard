@@ -76,6 +76,7 @@ CREATE TABLE sensor_metrics (
   device_id TEXT NOT NULL,
   sensor_type TEXT,
   org_id TEXT,
+  sensor_id INTEGER,
   value DOUBLE PRECISION,
   unit TEXT,
   status TEXT,

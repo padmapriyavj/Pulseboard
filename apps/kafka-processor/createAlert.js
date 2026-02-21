@@ -112,14 +112,17 @@ async function createAlert(data) {
 
     return result.rows[0].id;
   } catch (error) {
-    console.error('Error creating alert:', error);
-    console.error('Alert data that failed:', {
-      orgId: data.orgId,
-      sensorId: data.sensorId,
-      value: data.value,
-      status: data.status
-    });
-    // Don't throw - alerts are non-critical
+    if (error.code === '42P01') {
+      console.warn('Alerts table missing. Run ./run_migrations.sh from repo root.');
+    } else {
+      console.error('Error creating alert:', error);
+      console.error('Alert data that failed:', {
+        orgId: data.orgId,
+        sensorId: data.sensorId,
+        value: data.value,
+        status: data.status
+      });
+    }
     return null;
   }
 }
