@@ -124,3 +124,26 @@ END $$;
 
 -- Optional: Index for faster recent access lookup
 CREATE INDEX IF NOT EXISTS idx_sensor_access_log_org ON sensor_access_log (org_id, accessed_at DESC);
+
+-- Alerts table for threshold breaches and anomalies (required by GraphQL getAlerts)
+CREATE TABLE IF NOT EXISTS alerts (
+  id SERIAL PRIMARY KEY,
+  org_id TEXT NOT NULL,
+  sensor_id INTEGER REFERENCES sensors(id) ON DELETE CASCADE,
+  sensor_name TEXT,
+  sensor_type TEXT,
+  alert_type TEXT NOT NULL,
+  severity TEXT NOT NULL,
+  message TEXT NOT NULL,
+  value DOUBLE PRECISION,
+  threshold_min NUMERIC,
+  threshold_max NUMERIC,
+  acknowledged BOOLEAN DEFAULT FALSE,
+  acknowledged_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_alerts_org_id ON alerts(org_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_sensor_id ON alerts(sensor_id);
+CREATE INDEX IF NOT EXISTS idx_alerts_severity ON alerts(severity);
+CREATE INDEX IF NOT EXISTS idx_alerts_acknowledged ON alerts(acknowledged);
+CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON alerts(created_at DESC);

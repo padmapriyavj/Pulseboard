@@ -99,6 +99,43 @@ const AlertType = new GraphQLObjectType({
   }),
 });
 
+/** Insight type (AI-generated alert analysis) */
+const InsightType = new GraphQLObjectType({
+  name: "Insight",
+  fields: () => ({
+    id: { type: new GraphQLNonNull(GraphQLInt) },
+    orgId: { type: new GraphQLNonNull(GraphQLString) },
+    sensorId: { type: GraphQLInt },
+    sensor: {
+      type: SensorConfigType,
+      resolve: async (parent) => {
+        if (!parent.sensorId) return null;
+        const res = await pool.query(
+          "SELECT * FROM sensors WHERE id = $1 AND delete_status = FALSE",
+          [parent.sensorId]
+        );
+        return res.rows[0] || null;
+      },
+    },
+    insightType: { type: new GraphQLNonNull(GraphQLString) },
+    insightText: { type: new GraphQLNonNull(GraphQLString) },
+    severity: { type: new GraphQLNonNull(GraphQLString) },
+    metadata: { type: GraphQLString },
+    createdAt: { type: new GraphQLNonNull(GraphQLString) },
+  }),
+});
+
+/** GenerateInsightsResponse type */
+const GenerateInsightsResponseType = new GraphQLObjectType({
+  name: "GenerateInsightsResponse",
+  fields: () => ({
+    success: { type: new GraphQLNonNull(GraphQLBoolean) },
+    count: { type: new GraphQLNonNull(GraphQLInt) },
+    duration: { type: new GraphQLNonNull(GraphQLString) },
+    error: { type: GraphQLString },
+  }),
+});
+
 /** Root Query */
 const RootQuery = new GraphQLObjectType({
   name: "RootQueryType",
@@ -322,6 +359,95 @@ const RootQuery = new GraphQLObjectType({
         };
       },
     },
+    insights: {
+      type: new GraphQLList(InsightType),
+      args: {
+        orgId: { type: new GraphQLNonNull(GraphQLString) },
+        limit: { type: GraphQLInt },
+        insightType: { type: GraphQLString },
+        severity: { type: GraphQLString },
+      },
+      resolve: async (_, { orgId, limit = 10, insightType, severity }, context) => {
+        if (context?.user?.org_id && context.user.org_id !== orgId) {
+          throw new Error("Unauthorized: orgId does not match your organization");
+        }
+        const where = ["org_id = $1"];
+        const values = [orgId];
+        let paramIndex = 2;
+        if (insightType) {
+          where.push(`insight_type = $${paramIndex++}`);
+          values.push(insightType);
+        }
+        if (severity) {
+          where.push(`severity = $${paramIndex++}`);
+          values.push(severity);
+        }
+        values.push(limit);
+        const res = await pool.query(
+          `SELECT id, org_id AS "orgId", sensor_id AS "sensorId", insight_type AS "insightType",
+                  insight_text AS "insightText", severity, metadata, created_at AS "createdAt"
+           FROM insights
+           WHERE ${where.join(" AND ")}
+           ORDER BY created_at DESC
+           LIMIT $${values.length}`,
+          values
+        );
+        return res.rows.map((row) => ({
+          ...row,
+          metadata: row.metadata != null ? JSON.stringify(row.metadata) : null,
+          createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+        }));
+      },
+    },
+    latestInsights: {
+      type: new GraphQLList(InsightType),
+      args: {
+        orgId: { type: new GraphQLNonNull(GraphQLString) },
+        limit: { type: GraphQLInt },
+      },
+      resolve: async (_, { orgId, limit = 5 }, context) => {
+        if (context?.user?.org_id && context.user.org_id !== orgId) {
+          throw new Error("Unauthorized: orgId does not match your organization");
+        }
+        const res = await pool.query(
+          `SELECT id, org_id AS "orgId", sensor_id AS "sensorId", insight_type AS "insightType",
+                  insight_text AS "insightText", severity, metadata, created_at AS "createdAt"
+           FROM insights
+           WHERE org_id = $1
+           ORDER BY created_at DESC
+           LIMIT $2`,
+          [orgId, limit]
+        );
+        return res.rows.map((row) => ({
+          ...row,
+          metadata: row.metadata != null ? JSON.stringify(row.metadata) : null,
+          createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+        }));
+      },
+    },
+    insightsForSensor: {
+      type: new GraphQLList(InsightType),
+      args: {
+        sensorId: { type: new GraphQLNonNull(GraphQLInt) },
+        limit: { type: GraphQLInt },
+      },
+      resolve: async (_, { sensorId, limit = 5 }) => {
+        const res = await pool.query(
+          `SELECT id, org_id AS "orgId", sensor_id AS "sensorId", insight_type AS "insightType",
+                  insight_text AS "insightText", severity, metadata, created_at AS "createdAt"
+           FROM insights
+           WHERE sensor_id = $1
+           ORDER BY created_at DESC
+           LIMIT $2`,
+          [sensorId, limit]
+        );
+        return res.rows.map((row) => ({
+          ...row,
+          metadata: row.metadata != null ? JSON.stringify(row.metadata) : null,
+          createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+        }));
+      },
+    },
   },
 });
 
@@ -483,6 +609,47 @@ const Mutation = new GraphQLObjectType({
           throw new Error("Alert not found");
         }
         return "Alert deleted";
+      },
+    },
+    generateInsights: {
+      type: GenerateInsightsResponseType,
+      args: {
+        orgId: { type: new GraphQLNonNull(GraphQLString) },
+      },
+      resolve: async (_, { orgId }, context) => {
+        if (context?.user?.org_id && context.user.org_id !== orgId) {
+          throw new Error("Unauthorized: orgId does not match your organization");
+        }
+        const baseUrl = process.env.INSIGHTS_ENGINE_URL || "http://localhost:5004";
+        try {
+          const res = await fetch(`${baseUrl}/generate/${encodeURIComponent(orgId)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            return {
+              success: false,
+              count: 0,
+              duration: "0",
+              error: data.error || res.statusText,
+            };
+          }
+          return {
+            success: data.success ?? true,
+            count: data.count ?? 0,
+            duration: String(data.duration ?? "0"),
+            error: null,
+          };
+        } catch (err) {
+          console.error("generateInsights failed:", err.message);
+          return {
+            success: false,
+            count: 0,
+            duration: "0",
+            error: err.message,
+          };
+        }
       },
     },
   },

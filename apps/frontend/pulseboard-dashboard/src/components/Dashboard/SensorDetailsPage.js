@@ -13,6 +13,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { GET_SENSOR, GET_SENSOR_METRICS } from "../../graphql/sensorDetails";
+import { GET_INSIGHTS_FOR_SENSOR } from "../../graphql/insights";
+import InsightCard from "../insights/InsightCard";
 import { useAuth } from "../../hooks/useAuth";
 import { useMutation, gql } from "@apollo/client";
 
@@ -40,6 +42,12 @@ const SensorDetailsPage = () => {
   });
 
   const sensor = sensorData?.getSensor;
+
+  const { data: insightsData } = useQuery(GET_INSIGHTS_FOR_SENSOR, {
+    variables: { sensorId: parseInt(id, 10), limit: 3 },
+    skip: !id || !sensor?.id,
+  });
+  const sensorInsights = insightsData?.insightsForSensor || [];
 
   // Live metrics query (updates every 5 seconds)
   const {
@@ -721,6 +729,18 @@ const SensorDetailsPage = () => {
           </div>
         )}
       </div>
+
+      {/* Insights for this Sensor */}
+      {sensorInsights.length > 0 && (
+        <div style={{ ...styles.anomaliesSection, marginTop: "2rem" }}>
+          <h2 style={styles.sectionTitle}>🔍 Insights for this Sensor</h2>
+          <div style={{ marginTop: "1rem" }}>
+            {sensorInsights.map((insight) => (
+              <InsightCard key={insight.id} insight={insight} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

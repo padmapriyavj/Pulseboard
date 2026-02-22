@@ -192,6 +192,18 @@
     transform: translateY(-1px);
   }
   
+  .overview-two-column {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 968px) {
+    .overview-two-column {
+      grid-template-columns: 1fr;
+    }
+  }
+
   @media (max-width: 768px) {
     .overview-header {
       flex-direction: column;
