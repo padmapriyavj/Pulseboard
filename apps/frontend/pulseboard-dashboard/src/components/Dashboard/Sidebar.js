@@ -24,6 +24,10 @@ function Sidebar() {
       label: "Alerts"
     },
     { 
+      path: "/dashboard/insights", 
+      label: "Insights"
+    },
+    { 
       path: "/dashboard/settings", 
       label: "Settings"
     },

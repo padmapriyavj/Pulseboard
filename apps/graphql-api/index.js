@@ -36,8 +36,9 @@ app.use("/graphql", authenticate);
 // Run GraphQL
 app.use(
   "/graphql",
-  graphqlHTTP({
+  graphqlHTTP((req, res, graphQLParams) => ({
     schema,
+    context: { user: req.user },
     graphiql: process.env.NODE_ENV !== "production",
     customFormatErrorFn: (err) => {
       console.error("GraphQL Error:", err);
@@ -48,7 +49,7 @@ app.use(
         extensions: err.extensions,
       };
     },
-  })
+  }))
 );
 
 const PORT = process.env.PORT || 4000;

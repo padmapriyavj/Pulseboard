@@ -1,1 +1,7 @@
 node_modules
+
+# Environment and secrets (never commit)
+.env
+.env.*
+!.env.example
+apps/insights-engine/.env

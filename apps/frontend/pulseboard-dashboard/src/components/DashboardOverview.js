@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@apollo/client";
 import { useAuth } from "../hooks/useAuth";
 import { GET_DASHBOARD_STATS } from "../graphql/dashboard";
+import InsightsFeed from "./insights/InsightsFeed";
 import "./DashboardOverview.css";
 
 function DashboardOverview() {
@@ -71,57 +72,62 @@ function DashboardOverview() {
         </div>
       </div>
 
-      <div className="recent-sensors-card">
-        <div className="card-header">
-          <h3>Recently Accessed Sensors</h3>
-          <a href="/sensors" className="view-all-link">
-            View All
-          </a>
+      <div className="overview-two-column">
+        <div className="insights-column">
+          <InsightsFeed orgId={orgId} limit={5} />
         </div>
+        <div className="recent-sensors-card">
+          <div className="card-header">
+            <h3>Recently Accessed Sensors</h3>
+            <a href="/dashboard/sensors" className="view-all-link">
+              View All
+            </a>
+          </div>
 
-        <table className="sensors-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {recent.length === 0 ? (
+          <table className="sensors-table">
+            <thead>
               <tr>
-                <td colSpan="4" className="no-data">
-                  No recent activity
-                </td>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
-            ) : (
-              recent.map((sensor) => (
-                <tr key={sensor.id}>
-                  <td>{sensor.name || sensor.type}</td>
-                  <td>{sensor.type}</td>
-                  <td>
-                    <span
-                      className="status-badge"
-                      style={{ color: getStatusColor(sensor.status) }}
-                    >
-                      {sensor.status}
-                    </span>
-                  </td>
-                  <td>
-                    <button
-                      className="action-button"
-                      onClick={() => navigate(`/sensor/${sensor.id}`)}
-                    >
-                      View
-                    </button>
+            </thead>
+
+            <tbody>
+              {recent.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="no-data">
+                    No recent activity
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                recent.map((sensor) => (
+                  <tr key={sensor.id}>
+                    <td>{sensor.name || sensor.type}</td>
+                    <td>{sensor.type}</td>
+                    <td>
+                      <span
+                        className="status-badge"
+                        style={{ color: getStatusColor(sensor.status) }}
+                      >
+                        {sensor.status}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        className="action-button"
+                        onClick={() => navigate(`/dashboard/sensors/${sensor.id}`)}
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
