@@ -9,6 +9,7 @@ import {
   GraphQLInt,
   GraphQLBoolean,
 } from "graphql";
+import bcrypt from "bcryptjs";
 import pool from "./db.js";
 
 const SensorMetricType = new GraphQLObjectType({
@@ -133,6 +134,65 @@ const GenerateInsightsResponseType = new GraphQLObjectType({
     count: { type: new GraphQLNonNull(GraphQLInt) },
     duration: { type: new GraphQLNonNull(GraphQLString) },
     error: { type: GraphQLString },
+  }),
+});
+
+/** User type (no password) */
+const UserType = new GraphQLObjectType({
+  name: "User",
+  fields: () => ({
+    id: { type: GraphQLInt },
+    name: { type: GraphQLString },
+    email: { type: GraphQLString },
+    organizationId: { type: GraphQLString },
+  }),
+});
+
+/** UserSettings type for settings page */
+const UserSettingsType = new GraphQLObjectType({
+  name: "UserSettings",
+  fields: () => ({
+    name: { type: GraphQLString },
+    email: { type: GraphQLString },
+    organizationId: { type: GraphQLString },
+    timezone: { type: GraphQLString },
+  }),
+});
+
+/** UpdateProfileResponse */
+const UpdateProfileResponseType = new GraphQLObjectType({
+  name: "UpdateProfileResponse",
+  fields: () => ({
+    success: { type: new GraphQLNonNull(GraphQLBoolean) },
+    message: { type: GraphQLString },
+    user: { type: UserType },
+  }),
+});
+
+/** ChangePasswordResponse */
+const ChangePasswordResponseType = new GraphQLObjectType({
+  name: "ChangePasswordResponse",
+  fields: () => ({
+    success: { type: new GraphQLNonNull(GraphQLBoolean) },
+    message: { type: GraphQLString },
+  }),
+});
+
+/** DeleteAccountResponse */
+const DeleteAccountResponseType = new GraphQLObjectType({
+  name: "DeleteAccountResponse",
+  fields: () => ({
+    success: { type: new GraphQLNonNull(GraphQLBoolean) },
+    message: { type: GraphQLString },
+  }),
+});
+
+/** UpdateOrganizationResponse */
+const UpdateOrganizationResponseType = new GraphQLObjectType({
+  name: "UpdateOrganizationResponse",
+  fields: () => ({
+    success: { type: new GraphQLNonNull(GraphQLBoolean) },
+    message: { type: GraphQLString },
   }),
 });
 
@@ -448,6 +508,34 @@ const RootQuery = new GraphQLObjectType({
         }));
       },
     },
+    userSettings: {
+      type: UserSettingsType,
+      resolve: async (_, __, context) => {
+        if (!context?.user?.id) throw new Error("Unauthorized");
+        let row;
+        try {
+          const res = await pool.query(
+            "SELECT name, email, org_id, COALESCE(timezone, 'UTC') AS timezone FROM users WHERE id = $1",
+            [context.user.id]
+          );
+          if (res.rows.length === 0) throw new Error("User not found");
+          row = res.rows[0];
+        } catch (e) {
+          const res = await pool.query(
+            "SELECT name, email, org_id FROM users WHERE id = $1",
+            [context.user.id]
+          );
+          if (res.rows.length === 0) throw new Error("User not found");
+          row = { ...res.rows[0], timezone: "UTC" };
+        }
+        return {
+          name: row.name,
+          email: row.email,
+          organizationId: row.org_id,
+          timezone: row.timezone || "UTC",
+        };
+      },
+    },
   },
 });
 
@@ -650,6 +738,97 @@ const Mutation = new GraphQLObjectType({
             error: err.message,
           };
         }
+      },
+    },
+    updateProfile: {
+      type: UpdateProfileResponseType,
+      args: {
+        name: { type: new GraphQLNonNull(GraphQLString) },
+        email: { type: new GraphQLNonNull(GraphQLString) },
+      },
+      resolve: async (_, { name, email }, context) => {
+        if (!context?.user?.id) throw new Error("Unauthorized");
+        const trimmedName = (name || "").trim();
+        const trimmedEmail = (email || "").trim();
+        if (!trimmedName) throw new Error("Name cannot be empty");
+        if (!trimmedEmail) throw new Error("Email cannot be empty");
+        if (!trimmedEmail.includes("@") || !trimmedEmail.includes(".")) {
+          throw new Error("Invalid email format");
+        }
+        const existing = await pool.query(
+          "SELECT id FROM users WHERE email = $1 AND id != $2",
+          [trimmedEmail, context.user.id]
+        );
+        if (existing.rows.length > 0) {
+          return {
+            success: false,
+            message: "Email already in use",
+            user: null,
+          };
+        }
+        const res = await pool.query(
+          "UPDATE users SET name = $1, email = $2 WHERE id = $3 RETURNING id, name, email, org_id",
+          [trimmedName, trimmedEmail, context.user.id]
+        );
+        if (res.rows.length === 0) throw new Error("User not found");
+        const row = res.rows[0];
+        return {
+          success: true,
+          message: "Profile updated",
+          user: {
+            id: row.id,
+            name: row.name,
+            email: row.email,
+            organizationId: row.org_id,
+          },
+        };
+      },
+    },
+    changePassword: {
+      type: ChangePasswordResponseType,
+      args: {
+        currentPassword: { type: new GraphQLNonNull(GraphQLString) },
+        newPassword: { type: new GraphQLNonNull(GraphQLString) },
+      },
+      resolve: async (_, { currentPassword, newPassword }, context) => {
+        if (!context?.user?.id) throw new Error("Unauthorized");
+        const res = await pool.query("SELECT password FROM users WHERE id = $1", [context.user.id]);
+        if (res.rows.length === 0) throw new Error("User not found");
+        const match = await bcrypt.compare(currentPassword, res.rows[0].password);
+        if (!match) return { success: false, message: "Current password is incorrect" };
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await pool.query("UPDATE users SET password = $1 WHERE id = $2", [hashed, context.user.id]);
+        return { success: true, message: "Password updated successfully" };
+      },
+    },
+    deleteAccount: {
+      type: DeleteAccountResponseType,
+      args: {
+        password: { type: new GraphQLNonNull(GraphQLString) },
+      },
+      resolve: async (_, { password }, context) => {
+        if (!context?.user?.id) throw new Error("Unauthorized");
+        const res = await pool.query("SELECT password FROM users WHERE id = $1", [context.user.id]);
+        if (res.rows.length === 0) throw new Error("User not found");
+        const match = await bcrypt.compare(password, res.rows[0].password);
+        if (!match) return { success: false, message: "Password is incorrect" };
+        await pool.query("DELETE FROM users WHERE id = $1", [context.user.id]);
+        return { success: true, message: "Account deleted" };
+      },
+    },
+    updateOrganization: {
+      type: UpdateOrganizationResponseType,
+      args: {
+        organizationName: { type: new GraphQLNonNull(GraphQLString) },
+        timezone: { type: new GraphQLNonNull(GraphQLString) },
+      },
+      resolve: async (_, { organizationName, timezone }, context) => {
+        if (!context?.user?.id) throw new Error("Unauthorized");
+        await pool.query(
+          "UPDATE users SET timezone = $1 WHERE id = $2",
+          [timezone, context.user.id]
+        );
+        return { success: true, message: "Organization settings updated" };
       },
     },
   },

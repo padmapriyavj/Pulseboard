@@ -22,6 +22,17 @@ BEGIN
   END IF;
 END $$;
 
+-- Timezone preference for settings (optional)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'users' AND column_name = 'timezone'
+  ) THEN
+    ALTER TABLE users ADD COLUMN timezone TEXT DEFAULT 'UTC';
+  END IF;
+END $$;
+
 -- Sensor configuration table
 CREATE TABLE IF NOT EXISTS sensors (
   id SERIAL PRIMARY KEY,
