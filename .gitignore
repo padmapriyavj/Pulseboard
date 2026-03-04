@@ -1,5 +1,8 @@
 node_modules
 
+# Backups (local only)
+backups/
+
 # Environment and secrets (never commit)
 .env
 .env.*

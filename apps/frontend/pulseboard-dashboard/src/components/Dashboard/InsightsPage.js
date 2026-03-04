@@ -97,6 +97,7 @@ function InsightsPage() {
   const { orgId } = useAuth();
   const [severityFilter, setSeverityFilter] = useState("");
   const [insightTypeFilter, setInsightTypeFilter] = useState("");
+  const [generateMessage, setGenerateMessage] = useState(null);
 
   const { loading, error, data, refetch } = useQuery(GET_INSIGHTS, {
     variables: {
@@ -111,13 +112,24 @@ function InsightsPage() {
   const [generateInsights, { loading: generating }] = useMutation(GENERATE_INSIGHTS, {
     variables: { orgId: orgId || "" },
     onCompleted: (res) => {
-      if (res?.generateInsights?.success) {
+      const result = res?.generateInsights;
+      if (!result) return;
+      setGenerateMessage(null);
+      if (result.success) {
         refetch();
+        setGenerateMessage(`Generated ${result.count} insights in ${result.duration}s.`);
+        setTimeout(() => setGenerateMessage(null), 5000);
+      } else {
+        setGenerateMessage(result.error || "Generation failed.");
       }
+    },
+    onError: (err) => {
+      setGenerateMessage(err?.message || "Could not reach insights service. Is the insights engine running?");
     },
   });
 
   const handleGenerate = () => {
+    setGenerateMessage(null);
     if (orgId && !generating) generateInsights();
   };
 
@@ -141,6 +153,16 @@ function InsightsPage() {
 
       {generating && (
         <div style={styles.loading}>Generating insights from your alerts. This may take a few seconds...</div>
+      )}
+      {generateMessage && (
+        <div
+          style={{
+            ...styles.error,
+            color: generateMessage.startsWith("Generated") ? "#10b981" : "#ef4444",
+          }}
+        >
+          {generateMessage}
+        </div>
       )}
 
       <div style={styles.filters}>
