@@ -80,10 +80,18 @@ export function AuthProvider({ children }) {
     setAuthData({ token: null, orgId: null, userName: null });
   };
 
+  const updateProfileName = (userName) => {
+    if (userName) {
+      localStorage.setItem("user_name", userName);
+      setAuthData((prev) => ({ ...prev, userName }));
+    }
+  };
+
   const value = {
     ...authData,
     login,
     logout,
+    updateProfileName,
     isAuthenticated: !!authData.token,
     loading,
   };
