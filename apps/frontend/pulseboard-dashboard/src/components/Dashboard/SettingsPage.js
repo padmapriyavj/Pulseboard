@@ -70,6 +70,19 @@ const styles = {
     color: "#94a3b8",
     cursor: "not-allowed",
   },
+  inputEdited: {
+    borderColor: "rgba(244, 249, 107, 0.5)",
+    boxShadow: "0 0 0 1px rgba(244, 249, 107, 0.25)",
+  },
+  editedIndicator: {
+    color: "#f4f96b",
+    fontWeight: 600,
+  },
+  divider: {
+    border: "none",
+    borderTop: "1px solid #374151",
+    margin: "1.5rem 0 0 0",
+  },
   row: {
     display: "flex",
     gap: "1rem",
@@ -91,39 +104,68 @@ const styles = {
     backgroundColor: "#3a3a3a",
     color: "#e2e8f0",
   },
+  btnCancel: {
+    backgroundColor: "transparent",
+    color: "#d1d5db",
+    border: "1px solid #4b5563",
+  },
   btnDanger: {
     backgroundColor: "#dc2626",
     color: "#fff",
+  },
+  btnDangerOutlined: {
+    backgroundColor: "transparent",
+    color: "#ef4444",
+    border: "1px solid #dc2626",
+    padding: "8px 1rem",
+    fontSize: "13px",
   },
   btnDisabled: {
     opacity: 0.5,
     cursor: "not-allowed",
   },
   message: {
-    marginBottom: "1rem",
-    padding: "0.75rem",
+    padding: "0.75rem 1rem",
     borderRadius: "8px",
     fontSize: "14px",
+    border: "1px solid",
   },
   messageSuccess: {
-    backgroundColor: "rgba(16,185,129,0.2)",
-    color: "#10b981",
+    backgroundColor: "rgba(16, 185, 129, 0.15)",
+    borderColor: "#047857",
+    color: "#34d399",
   },
   messageError: {
-    backgroundColor: "rgba(239,68,68,0.2)",
-    color: "#ef4444",
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    borderColor: "#b91c1c",
+    color: "#f87171",
   },
 };
 
+function validateEmail(value) {
+  const v = (value || "").trim();
+  if (!v) return "Email is required";
+  if (!v.includes("@") || !v.includes(".")) return "Enter a valid email (must contain @ and .)";
+  return "";
+}
+
 function SettingsPage() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [initialValues, setInitialValues] = useState({ name: "", email: "" });
+  const [formValues, setFormValues] = useState({ name: "", email: "" });
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState({ type: "", text: "" });
+
   const [organizationName, setOrganizationName] = useState("");
+  const [initialTimezone, setInitialTimezone] = useState("UTC");
   const [timezone, setTimezone] = useState("UTC");
+  const [hasOrgChanges, setHasOrgChanges] = useState(false);
+  const [isSavingOrg, setIsSavingOrg] = useState(false);
+  const [orgMessage, setOrgMessage] = useState({ type: "", text: "" });
+
   const [emailError, setEmailError] = useState("");
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [message, setMessage] = useState(null);
   const { updateProfileName } = useAuth();
 
   const { data, loading, error, refetch } = useQuery(GET_USER_SETTINGS, {
@@ -136,69 +178,114 @@ function SettingsPage() {
   useEffect(() => {
     if (data?.userSettings) {
       const s = data.userSettings;
-      setName(s.name || "");
-      setEmail(s.email || "");
+      const nameVal = s.name || "";
+      const emailVal = s.email || "";
+      const tzVal = s.timezone || "UTC";
+      setInitialValues({ name: nameVal, email: emailVal });
+      setFormValues({ name: nameVal, email: emailVal });
       setOrganizationName(s.organizationId || "");
-      setTimezone(s.timezone || "UTC");
+      setInitialTimezone(tzVal);
+      setTimezone(tzVal);
     }
   }, [data]);
 
-  const initialName = data?.userSettings?.name ?? "";
-  const initialEmail = data?.userSettings?.email ?? "";
-  const initialTimezone = data?.userSettings?.timezone ?? "UTC";
-  const isDirty =
-    name.trim() !== initialName ||
-    email.trim() !== initialEmail ||
-    timezone !== initialTimezone;
+  useEffect(() => {
+    const nameDiff = formValues.name.trim() !== initialValues.name.trim();
+    const emailDiff = formValues.email.trim() !== initialValues.email.trim();
+    setHasChanges(nameDiff || emailDiff);
+  }, [formValues, initialValues]);
 
-  function validateEmail(value) {
-    const v = (value || "").trim();
-    if (!v) return "Email is required";
-    if (!v.includes("@") || !v.includes(".")) return "Enter a valid email (must contain @ and .)";
-    return "";
-  }
-  const saving = savingProfile || savingOrg;
+  useEffect(() => {
+    setHasOrgChanges(timezone !== initialTimezone);
+  }, [timezone, initialTimezone]);
 
-  const handleSave = async () => {
-    setMessage(null);
+  useEffect(() => {
+    if (hasChanges && saveMessage.text) setSaveMessage({ type: "", text: "" });
+  }, [hasChanges]);
+
+  useEffect(() => {
+    const onBeforeUnload = (e) => {
+      if (hasChanges) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasChanges]);
+
+  const handleCancel = () => {
+    setFormValues(initialValues);
+    setHasChanges(false);
+    setSaveMessage({ type: "", text: "" });
     setEmailError("");
-    if (!name.trim()) {
-      setMessage({ type: "error", text: "Name cannot be empty" });
+  };
+
+  const handleSaveProfile = async () => {
+    setSaveMessage({ type: "", text: "" });
+    setEmailError("");
+    if (!formValues.name.trim()) {
+      setSaveMessage({ type: "error", text: "Name cannot be empty" });
       return;
     }
-    const emailValidation = validateEmail(email);
+    const emailValidation = validateEmail(formValues.email);
     if (emailValidation) {
       setEmailError(emailValidation);
+      setSaveMessage({ type: "error", text: emailValidation });
       return;
     }
+    setIsSaving(true);
     try {
-      const profileRes = await updateProfile({
-        variables: { name: name.trim(), email: email.trim() },
+      const res = await updateProfile({
+        variables: { name: formValues.name.trim(), email: formValues.email.trim() },
       });
-      if (!profileRes.data?.updateProfile?.success) {
-        const msg = profileRes.data?.updateProfile?.message || "Profile update failed";
+      if (!res.data?.updateProfile?.success) {
+        const msg = res.data?.updateProfile?.message || "Profile update failed";
         if (msg === "Email already in use") setEmailError(msg);
-        else setMessage({ type: "error", text: msg });
+        setSaveMessage({ type: "error", text: `Failed to update profile: ${msg}` });
         return;
       }
-      const orgRes = await updateOrganization({
+      updateProfileName(formValues.name.trim());
+      setInitialValues({ name: formValues.name.trim(), email: formValues.email.trim() });
+      setHasChanges(false);
+      setSaveMessage({ type: "success", text: "Profile updated successfully" });
+      setTimeout(() => setSaveMessage({ type: "", text: "" }), 3000);
+      refetch();
+    } catch (err) {
+      setSaveMessage({ type: "error", text: `Failed to update profile: ${err?.message || "Please try again."}` });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSavePreferences = async () => {
+    setOrgMessage({ type: "", text: "" });
+    setIsSavingOrg(true);
+    try {
+      const res = await updateOrganization({
         variables: {
           organizationName: organizationName.trim() || data?.userSettings?.organizationId,
           timezone,
         },
       });
-      if (!orgRes.data?.updateOrganization?.success) {
-        setMessage({ type: "error", text: orgRes.data?.updateOrganization?.message || "Organization update failed" });
+      if (!res.data?.updateOrganization?.success) {
+        setOrgMessage({
+          type: "error",
+          text: res.data?.updateOrganization?.message || "Failed to update preferences.",
+        });
         return;
       }
-      updateProfileName(name.trim());
-      setMessage({ type: "success", text: "Settings saved successfully" });
-      setTimeout(() => setMessage(null), 4000);
+      setInitialTimezone(timezone);
+      setHasOrgChanges(false);
+      setOrgMessage({ type: "success", text: "Preferences saved successfully" });
+      setTimeout(() => setOrgMessage({ type: "", text: "" }), 3000);
       refetch();
     } catch (err) {
-      setMessage({ type: "error", text: err?.message || "Unable to save. Please try again." });
+      setOrgMessage({ type: "error", text: `Failed to update preferences: ${err?.message || "Please try again."}` });
+    } finally {
+      setIsSavingOrg(false);
     }
   };
+
+  const nameEdited = formValues.name.trim() !== initialValues.name.trim();
+  const emailEdited = formValues.email.trim() !== initialValues.email.trim();
 
   if (loading) {
     return (
@@ -220,48 +307,87 @@ function SettingsPage() {
     <div style={styles.container}>
       <h1 style={styles.title}>Settings</h1>
 
-      {message && (
-        <div
-          style={{
-            ...styles.message,
-            ...(message.type === "success" ? styles.messageSuccess : styles.messageError),
-          }}
-        >
-          {message.text}
-        </div>
-      )}
-
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>Profile</h2>
-        <label style={styles.label}>Name</label>
+        <label style={styles.label}>
+          Name
+          {nameEdited && <span style={styles.editedIndicator}> *</span>}
+        </label>
         <input
           type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={styles.input}
-          placeholder="Your name"
-        />
-        <label style={styles.label}>Email</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => {
-            setEmail(e.target.value);
-            if (emailError) setEmailError(validateEmail(e.target.value));
-          }}
-          onBlur={() => setEmailError(validateEmail(email))}
+          value={formValues.name}
+          onChange={(e) => setFormValues((prev) => ({ ...prev, name: e.target.value }))}
           style={{
             ...styles.input,
-            ...(emailError ? { borderColor: "#ef4444" } : {}),
+            ...(nameEdited ? styles.inputEdited : {}),
+          }}
+          placeholder="Your name"
+        />
+        <label style={styles.label}>
+          Email
+          {emailEdited && <span style={styles.editedIndicator}> *</span>}
+        </label>
+        <input
+          type="email"
+          value={formValues.email}
+          onChange={(e) => {
+            setFormValues((prev) => ({ ...prev, email: e.target.value }));
+            if (emailError) setEmailError(validateEmail(e.target.value));
+          }}
+          onBlur={() => setEmailError(validateEmail(formValues.email))}
+          style={{
+            ...styles.input,
+            ...(emailError ? { borderColor: "#ef4444" } : emailEdited ? styles.inputEdited : {}),
           }}
           placeholder="you@example.com"
         />
         {emailError && (
-          <div style={{ color: "#ef4444", fontSize: "12px", marginTop: "-0.5rem", marginBottom: "1rem" }}>
+          <div style={{ color: "#ef4444", fontSize: "12px", marginTop: "-0.5rem", marginBottom: "0.5rem" }}>
             {emailError}
           </div>
         )}
-        <div style={{ ...styles.row, marginTop: "1rem" }}>
+
+        {saveMessage.text && (
+          <div
+            style={{
+              ...styles.message,
+              ...(saveMessage.type === "success" ? styles.messageSuccess : styles.messageError),
+              marginBottom: "1rem",
+            }}
+          >
+            {saveMessage.text}
+          </div>
+        )}
+
+        <div style={{ ...styles.row, gap: "12px", marginBottom: "1.5rem" }}>
+          <button
+            type="button"
+            style={{
+              ...styles.btn,
+              ...styles.btnPrimary,
+              ...(!hasChanges || isSaving || emailError ? styles.btnDisabled : {}),
+              padding: "10px 1.5rem",
+            }}
+            disabled={!hasChanges || isSaving || !!emailError}
+            onClick={handleSaveProfile}
+          >
+            {isSaving ? "Saving..." : "Save Changes"}
+          </button>
+          {hasChanges && (
+            <button
+              type="button"
+              style={{ ...styles.btn, ...styles.btnCancel }}
+              onClick={handleCancel}
+              disabled={isSaving}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+
+        <hr style={styles.divider} />
+
+        <div style={{ ...styles.row, gap: "1rem", marginTop: "1.5rem" }}>
           <button
             type="button"
             style={{ ...styles.btn, ...styles.btnSecondary }}
@@ -271,7 +397,7 @@ function SettingsPage() {
           </button>
           <button
             type="button"
-            style={{ ...styles.btn, ...styles.btnDanger }}
+            style={{ ...styles.btn, ...styles.btnDangerOutlined }}
             onClick={() => setShowDeleteModal(true)}
           >
             Delete Account
@@ -300,20 +426,33 @@ function SettingsPage() {
             </option>
           ))}
         </select>
-      </section>
 
-      <button
-        type="button"
-        style={{
-          ...styles.btn,
-          ...styles.btnPrimary,
-          ...(!isDirty || saving || emailError ? styles.btnDisabled : {}),
-        }}
-        disabled={!isDirty || saving || !!emailError}
-        onClick={handleSave}
-      >
-        {saving ? "Saving..." : "Save Changes"}
-      </button>
+        {orgMessage.text && (
+          <div
+            style={{
+              ...styles.message,
+              ...(orgMessage.type === "success" ? styles.messageSuccess : styles.messageError),
+              marginBottom: "1rem",
+            }}
+          >
+            {orgMessage.text}
+          </div>
+        )}
+
+        <button
+          type="button"
+          style={{
+            ...styles.btn,
+            ...styles.btnPrimary,
+            ...(!hasOrgChanges || isSavingOrg ? styles.btnDisabled : {}),
+            padding: "10px 1.5rem",
+          }}
+          disabled={!hasOrgChanges || isSavingOrg}
+          onClick={handleSavePreferences}
+        >
+          {isSavingOrg ? "Saving..." : "Save Preferences"}
+        </button>
+      </section>
 
       {showPasswordModal && (
         <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />

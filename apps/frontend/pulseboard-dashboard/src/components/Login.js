@@ -12,6 +12,8 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [forgotLinkHover, setForgotLinkHover] = useState(false);
+  const [submitHover, setSubmitHover] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -36,10 +38,7 @@ function Login() {
         console.log("Login response:", data);
         const userName = data.userName || data.name || formData.email.split('@')[0] || "User";
         console.log("Setting userName:", userName);
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("org_id", formData.org_id);
-        localStorage.setItem("user_name", userName);
-        login(data.token, formData.org_id, userName);
+        login(data.token, formData.org_id, userName, true);
         navigate("/dashboard");
       } else {
         setError(data.message || "Login failed");
@@ -65,8 +64,8 @@ function Login() {
                 <span style={styles.featureIcon}>A</span>
               </div>
               <div>
-                <h3 style={styles.featureTitle}>Real-time Analytics</h3>
-                <p style={styles.featureDesc}>Monitor your sensors in real-time</p>
+                <h3 style={styles.featureTitle}>AI-Powered Insights</h3>
+                <p style={styles.featureDesc}>Get intelligent analysis of your sensor data patterns</p>
               </div>
             </div>
             <div style={styles.featureItem}>
@@ -74,8 +73,8 @@ function Login() {
                 <span style={styles.featureIcon}>!</span>
               </div>
               <div>
-                <h3 style={styles.featureTitle}>Smart Alerts</h3>
-                <p style={styles.featureDesc}>Get notified of anomalies instantly</p>
+                <h3 style={styles.featureTitle}>Real-time Monitoring</h3>
+                <p style={styles.featureDesc}>Track temperature, humidity, and custom sensors live</p>
               </div>
             </div>
             <div style={styles.featureItem}>
@@ -83,8 +82,8 @@ function Login() {
                 <span style={styles.featureIcon}>H</span>
               </div>
               <div>
-                <h3 style={styles.featureTitle}>Historical Data</h3>
-                <p style={styles.featureDesc}>Analyze trends and patterns</p>
+                <h3 style={styles.featureTitle}>Smart Alerts</h3>
+                <p style={styles.featureDesc}>Automatic threshold detection and notifications</p>
               </div>
             </div>
           </div>
@@ -119,15 +118,25 @@ function Login() {
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Password</label>
+              <div style={styles.labelRow}>
+                <label style={styles.labelInline}>Password</label>
+                <a
+                  href="#forgot"
+                  style={forgotLinkHover ? styles.forgotLinkHover : styles.forgotLink}
+                  onMouseEnter={() => setForgotLinkHover(true)}
+                  onMouseLeave={() => setForgotLinkHover(false)}
+                >
+                  Forgot password?
+                </a>
+              </div>
               <div style={styles.passwordWrapper}>
                 <input
                   type={showPassword ? "text" : "password"}
                   name="password"
-                  placeholder="Enter your password"
+                  placeholder="Password"
                   value={formData.password}
                   onChange={handleChange}
-                  style={styles.input}
+                  style={{ ...styles.input, paddingRight: "56px", boxSizing: "border-box" }}
                   required
                 />
                 <button
@@ -142,57 +151,41 @@ function Login() {
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Organization ID</label>
+              <label style={styles.label}>Organisation Name</label>
               <input
                 type="text"
                 name="org_id"
-                placeholder="Your organization ID"
+                placeholder="e.g. acme"
                 value={formData.org_id}
                 onChange={handleChange}
                 style={styles.input}
                 required
               />
+              <p style={styles.helperText}>Your unique workspace identifier</p>
             </div>
 
-            <div style={styles.rememberForgot}>
-              <label style={styles.checkboxLabel}>
-                <input type="checkbox" style={styles.checkbox} />
-                <span style={styles.checkboxText}>Remember me</span>
-              </label>
-              <a href="#forgot" style={styles.forgotLink}>
-                Forgot password?
-              </a>
-            </div>
-
-            <button 
-              type="submit" 
-              style={styles.submitButton}
+            <button
+              type="submit"
+              style={
+                loading
+                  ? { ...styles.submitButton, ...styles.submitButtonDisabled }
+                  : submitHover
+                    ? { ...styles.submitButton, ...styles.submitButtonHover }
+                    : styles.submitButton
+              }
               disabled={loading}
+              onMouseEnter={() => setSubmitHover(true)}
+              onMouseLeave={() => setSubmitHover(false)}
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
           </form>
 
-          <div style={styles.divider}>
-            <div style={styles.dividerLine}></div>
-            <span style={styles.dividerText}>or</span>
-            <div style={styles.dividerLine}></div>
-          </div>
-
-          <div style={styles.socialButtons}>
-            <button style={styles.socialButton}>
-              <span>Continue with Google</span>
-            </button>
-            <button style={styles.socialButton}>
-              <span>Continue with GitHub</span>
-            </button>
-          </div>
-
           <div style={styles.footer}>
             <p style={styles.footerText}>
               Don't have an account?{" "}
               <Link to="/register" style={styles.link}>
-                Sign up for free
+                Sign up
               </Link>
             </p>
           </div>
@@ -325,9 +318,11 @@ const styles = {
   form: {
     display: "flex",
     flexDirection: "column",
+    width: "100%",
   },
   formGroup: {
-    marginBottom: "24px",
+    marginBottom: "20px",
+    width: "100%",
   },
   label: {
     display: "block",
@@ -335,10 +330,32 @@ const styles = {
     fontWeight: "600",
     color: "#e2e8f0",
     marginBottom: "8px",
+    width: "100%",
+  },
+  labelInline: {
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "#e2e8f0",
+    margin: 0,
+    flex: "0 0 auto",
+  },
+  labelRow: {
+    display: "flex",
+    flexWrap: "nowrap",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "8px",
+    width: "100%",
+  },
+  helperText: {
+    fontSize: "12px",
+    color: "#9ca3af",
+    marginTop: "4px",
   },
   input: {
     width: "100%",
-    padding: "14px 16px",
+    boxSizing: "border-box",
+    padding: "12px 16px",
     fontSize: "15px",
     color: "#e2e8f0",
     backgroundColor: "#2a2a2a",
@@ -350,99 +367,51 @@ const styles = {
   },
   passwordWrapper: {
     position: "relative",
+    width: "100%",
   },
   togglePassword: {
     position: "absolute",
-    right: "14px",
+    right: "12px",
     top: "50%",
     transform: "translateY(-50%)",
     background: "none",
     border: "none",
-    color: "#94a3b8",
+    color: "#9ca3af",
     cursor: "pointer",
-    fontSize: "20px",
+    fontSize: "12px",
     padding: "4px",
-  },
-  rememberForgot: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "24px",
-  },
-  checkboxLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    cursor: "pointer",
-  },
-  checkbox: {
-    width: "18px",
-    height: "18px",
-    cursor: "pointer",
-    accentColor: "#FFFF66",
-  },
-  checkboxText: {
-    fontSize: "14px",
-    color: "#94a3b8",
   },
   forgotLink: {
     fontSize: "14px",
-    color: "#FFFF66",
+    color: "#facc15",
     textDecoration: "none",
-    fontWeight: "600",
+    fontWeight: "500",
+  },
+  forgotLinkHover: {
+    fontSize: "14px",
+    color: "#fde047",
+    textDecoration: "none",
+    fontWeight: "500",
   },
   submitButton: {
     width: "100%",
-    padding: "16px",
+    padding: "12px 16px",
     fontSize: "16px",
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#1a1a1a",
-    background: "linear-gradient(135deg, #FFFF66 0%, #FFE566 100%)",
+    backgroundColor: "#facc15",
     border: "none",
     borderRadius: "10px",
     cursor: "pointer",
-    transition: "all 0.3s",
-    boxShadow: "0 4px 12px rgba(255, 255, 102, 0.3)",
+    transition: "background-color 0.2s",
     marginBottom: "24px",
   },
-  divider: {
-    display: "flex",
-    alignItems: "center",
-    gap: "16px",
-    margin: "32px 0",
+  submitButtonDisabled: {
+    opacity: 0.8,
+    cursor: "not-allowed",
   },
-  dividerLine: {
-    flex: 1,
-    height: "1px",
-    background: "#B3B347",
-  },
-  dividerText: {
-    fontSize: "14px",
-    color: "#94a3b8",
-  },
-  socialButtons: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: "12px",
-    marginBottom: "32px",
-  },
-  socialButton: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "8px",
-    padding: "12px",
-    fontSize: "14px",
-    fontWeight: "600",
-    color: "#e2e8f0",
-    backgroundColor: "#2a2a2a",
-    border: "2px solid #B3B347",
-    borderRadius: "10px",
-    cursor: "pointer",
-    transition: "all 0.2s",
-  },
-  socialIcon: {
-    fontSize: "20px",
+  submitButtonHover: {
+    backgroundColor: "#eab308",
   },
   footer: {
     marginTop: "32px",

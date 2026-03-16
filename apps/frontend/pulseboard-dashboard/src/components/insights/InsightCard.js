@@ -1,4 +1,5 @@
 import React from "react";
+import "./InsightCard.css";
 
 function formatTimeAgo(timestamp) {
   if (!timestamp) return "Unknown";
@@ -24,34 +25,50 @@ function formatInsightType(type) {
     .join(" ");
 }
 
+function SeverityIcon({ severity }) {
+  const s = (severity || "").toUpperCase();
+  const size = 20;
+  const stroke = "currentColor";
+  const strokeW = 2;
+  if (s === "CRITICAL") {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeW} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
+      </svg>
+    );
+  }
+  if (s === "WARNING") {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeW} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
+      </svg>
+    );
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={strokeW} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+    </svg>
+  );
+}
+
 function InsightCard({ insight }) {
   const severity = (insight.severity || "").toUpperCase();
   const isCritical = severity === "CRITICAL";
   const isWarning = severity === "WARNING";
-  const isInfo = severity === "INFO";
 
-  const borderColor = isCritical ? "#ef4444" : isWarning ? "#f59e0b" : "#3b82f6";
-  const bgColor = isCritical ? "rgba(239,68,68,0.1)" : isWarning ? "rgba(245,158,11,0.1)" : "rgba(59,130,246,0.1)";
-  const icon = isCritical ? "🚨" : isWarning ? "⚠️" : "ℹ️";
+  const variant = isCritical ? "critical" : isWarning ? "warning" : "info";
+  const severityLabel = severity || "INFO";
 
   return (
-    <div
-      style={{
-        padding: "1rem",
-        borderRadius: "8px",
-        border: `1px solid ${borderColor}`,
-        backgroundColor: bgColor,
-        marginBottom: "0.75rem",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "0.5rem" }}>
-        <span style={{ fontSize: "1.25rem" }}>{icon}</span>
-        <p style={{ margin: 0, color: "#e2e8f0", fontSize: "15px", lineHeight: 1.5, flex: 1 }}>
-          {insight.insightText}
-        </p>
+    <div className={`insight-card insight-card--${variant}`}>
+      <div className="insight-card__body">
+        <span className="insight-card__icon">
+          <SeverityIcon severity={severity} />
+        </span>
+        <p className="insight-card__text">{insight.insightText}</p>
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", fontSize: "12px", color: "#94a3b8" }}>
-        <span style={{ fontWeight: 600, color: borderColor }}>{severity}</span>
+      <div className="insight-card__meta">
+        <span className="insight-card__severity">{severityLabel}</span>
         <span>{formatInsightType(insight.insightType)}</span>
         <span>{formatTimeAgo(insight.createdAt)}</span>
       </div>

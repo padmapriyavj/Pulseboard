@@ -1,12 +1,21 @@
 import db from "../db.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { validatePassword } from "../utils/passwordValidator.js";
 
 export const register = async (req, res) => {
   const { name, email, password, org_id } = req.body;
 
   if (!name || !email || !password || !org_id) {
     return res.status(400).json({ error: "All fields required" });
+  }
+
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.isValid) {
+    return res.status(400).json({
+      error: "Password validation failed",
+      details: passwordValidation.errors,
+    });
   }
 
   try {

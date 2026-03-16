@@ -21,18 +21,27 @@
 }
 
 .logo-section:hover {
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
 .logo-icon {
   width: 40px;
   height: 40px;
-  background: linear-gradient(135deg, #ffff66 0%, #ffe566 100%);
+  background: linear-gradient(135deg, #f4f96b 0%, #eab308 100%);
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1a1a1a;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 20px rgba(244, 249, 107, 0.35), 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: box-shadow 0.2s;
+}
+
+.logo-section:hover .logo-icon {
+  box-shadow: 0 0 24px rgba(244, 249, 107, 0.45), 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .logo-text {
@@ -44,24 +53,21 @@
   margin: 0;
 }
 
-.header-center {
-  flex: 1;
-  text-align: center;
-}
-
-.org-name {
-  font-size: 14px;
-  color: #94a3b8;
-  margin: 0;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
 .header-right {
-  flex: 1;
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 16px;
+}
+
+.org-pill {
+  font-size: 13px;
+  color: #9ca3af;
+  background: #27272a;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  margin-right: 8px;
+  font-weight: 500;
 }
 
 .user-section {
@@ -85,17 +91,19 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ffff66 0%, #ffe566 100%);
+  background: linear-gradient(135deg, #f4f96b 0%, #eab308 100%);
   color: #1a1a1a;
-  border: none;
+  border: 2px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
   font-weight: 700;
   font-size: 16px;
-  transition: transform 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .avatar-button:hover {
   transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(244, 249, 107, 0.25);
 }
 
 .profile-dropdown {
@@ -131,19 +139,16 @@
   color: #ffff66;
 }
 
-.logout-button {
-  border-top: 1px solid #b3b347;
-}
-
 @media (max-width: 768px) {
   .top-header {
     flex-wrap: wrap;
     gap: 12px;
   }
 
-  .header-center {
-    flex: 1 1 100%;
-    order: 3;
+  .org-pill {
+    font-size: 11px;
+    padding: 4px 8px;
+    margin-right: 4px;
   }
 
   .user-greeting {

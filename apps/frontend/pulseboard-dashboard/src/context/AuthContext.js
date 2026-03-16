@@ -28,30 +28,30 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const orgId = localStorage.getItem("org_id");
-    let userName = localStorage.getItem("user_name");
+    const tokenFromSession = sessionStorage.getItem("token");
+    const tokenFromLocal = localStorage.getItem("token");
+    const token = tokenFromSession || tokenFromLocal;
+    const storage = tokenFromSession ? sessionStorage : localStorage;
+    const orgId = storage.getItem("org_id");
+    let userName = storage.getItem("user_name");
 
     console.log("AuthContext init - token:", token ? "exists" : "none", "orgId:", orgId, "userName from storage:", userName);
 
-    // If userName is not in localStorage but token exists, try to decode it from JWT
+    // If userName is not in storage but token exists, try to decode it from JWT
     if (!userName && token) {
       const decoded = decodeJWT(token);
       console.log("Decoded JWT:", decoded);
       if (decoded && decoded.name) {
         userName = decoded.name;
         console.log("Found userName in JWT:", userName);
-        // Store it for future use
-        localStorage.setItem("user_name", userName);
+        storage.setItem("user_name", userName);
       } else if (decoded && decoded.email) {
-        // Fallback: use email username if name not in JWT
         userName = decoded.email.split('@')[0];
         console.log("Using email as userName:", userName);
-        localStorage.setItem("user_name", userName);
+        storage.setItem("user_name", userName);
       }
     }
 
-    // Final fallback to "User" if still no name found
     if (!userName) {
       userName = "User";
     }
@@ -66,14 +66,23 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const login = (token, orgId, userName) => {
-    localStorage.setItem("token", token);
-    localStorage.setItem("org_id", orgId);
-    localStorage.setItem("user_name", userName);
+  const login = (token, orgId, userName, rememberMe = true) => {
+    const storage = rememberMe ? localStorage : sessionStorage;
+    if (!rememberMe) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("org_id");
+      localStorage.removeItem("user_name");
+    }
+    storage.setItem("token", token);
+    storage.setItem("org_id", orgId);
+    storage.setItem("user_name", userName);
     setAuthData({ token, orgId, userName });
   };
 
   const logout = () => {
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("org_id");
+    sessionStorage.removeItem("user_name");
     localStorage.removeItem("token");
     localStorage.removeItem("org_id");
     localStorage.removeItem("user_name");
@@ -82,7 +91,8 @@ export function AuthProvider({ children }) {
 
   const updateProfileName = (userName) => {
     if (userName) {
-      localStorage.setItem("user_name", userName);
+      const storage = sessionStorage.getItem("token") ? sessionStorage : localStorage;
+      storage.setItem("user_name", userName);
       setAuthData((prev) => ({ ...prev, userName }));
     }
   };
