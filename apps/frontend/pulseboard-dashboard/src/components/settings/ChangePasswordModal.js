@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useMutation } from "@apollo/client";
 import { CHANGE_PASSWORD } from "../../graphql/settings";
+import PasswordStrengthIndicator, { isPasswordValid } from "../PasswordStrengthIndicator.js";
 
 const styles = {
   overlay: {
@@ -114,8 +115,8 @@ function ChangePasswordModal({ onClose }) {
     e.preventDefault();
     setValidationError("");
     setApiError("");
-    if (newPassword.length < 8) {
-      setValidationError("New password must be at least 8 characters");
+    if (!isPasswordValid(newPassword)) {
+      setValidationError("Password does not meet security requirements. Please ensure your password meets all criteria.");
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -129,6 +130,8 @@ function ChangePasswordModal({ onClose }) {
       },
     });
   };
+
+  const newPasswordValid = isPasswordValid(newPassword);
 
   return (
     <div style={styles.overlay} onClick={onClose}>
@@ -153,7 +156,11 @@ function ChangePasswordModal({ onClose }) {
             required
             minLength={8}
             autoComplete="new-password"
+            aria-describedby="new-password-requirements"
           />
+          <div id="new-password-requirements" style={{ marginBottom: "0.75rem" }}>
+            <PasswordStrengthIndicator password={newPassword} aria-label="New password strength and requirements" />
+          </div>
           <label style={styles.label}>Confirm New Password</label>
           <input
             type="password"
@@ -174,9 +181,9 @@ function ChangePasswordModal({ onClose }) {
               type="submit"
               style={{
                 ...styles.btnSave,
-                ...(loading ? styles.btnSaveDisabled : {}),
+                ...(loading || !newPasswordValid ? styles.btnSaveDisabled : {}),
               }}
-              disabled={loading}
+              disabled={loading || !newPasswordValid}
             >
               {loading ? "Saving..." : "Save"}
             </button>

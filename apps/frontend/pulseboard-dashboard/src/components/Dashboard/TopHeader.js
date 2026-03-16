@@ -26,11 +26,8 @@ function TopHeader() {
         </div>
       </div>
 
-      <div className="header-center">
-        <p className="org-name">{orgId}</p>
-      </div>
-
       <div className="header-right">
+        <div className="org-pill">Organization: {orgId}</div>
         <div className="user-section">
           <p className="user-greeting">Welcome, {userName || "User"}</p>
           <div className="profile-menu-wrapper">
@@ -44,12 +41,6 @@ function TopHeader() {
 
             {showProfileMenu && (
               <div className="profile-dropdown">
-                <a
-                  href="/settings"
-                  onClick={() => setShowProfileMenu(false)}
-                >
-                  Profile Settings
-                </a>
                 <button
                   className="logout-button"
                   onClick={handleLogout}

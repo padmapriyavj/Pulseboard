@@ -11,6 +11,7 @@ import {
 } from "graphql";
 import bcrypt from "bcryptjs";
 import pool from "./db.js";
+import { validatePassword } from "./utils/passwordValidator.js";
 
 const SensorMetricType = new GraphQLObjectType({
   name: "SensorMetric",
@@ -291,7 +292,7 @@ const RootQuery = new GraphQLObjectType({
         org_id: { type: new GraphQLNonNull(GraphQLString) },
         limit: { type: GraphQLInt },
       },
-      resolve: async (_, { org_id, limit = 5 }) => {
+      resolve: async (_, { org_id, limit = 100 }) => {
         // Use a subquery with ROW_NUMBER to get the most recent access per sensor,
         // then select only those rows and order by most recent access
         const res = await pool.query(
@@ -796,6 +797,13 @@ const Mutation = new GraphQLObjectType({
         if (res.rows.length === 0) throw new Error("User not found");
         const match = await bcrypt.compare(currentPassword, res.rows[0].password);
         if (!match) return { success: false, message: "Current password is incorrect" };
+        const passwordValidation = validatePassword(newPassword);
+        if (!passwordValidation.isValid) {
+          return {
+            success: false,
+            message: "Password validation failed. " + passwordValidation.errors.join(". "),
+          };
+        }
         const hashed = await bcrypt.hash(newPassword, 10);
         await pool.query("UPDATE users SET password = $1 WHERE id = $2", [hashed, context.user.id]);
         return { success: true, message: "Password updated successfully" };

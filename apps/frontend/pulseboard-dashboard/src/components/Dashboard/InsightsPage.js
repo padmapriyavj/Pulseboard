@@ -138,7 +138,7 @@ function InsightsPage() {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h1 style={styles.title}>💡 AI Insights</h1>
+        <h1 style={styles.title}>AI Insights</h1>
         <button
           onClick={handleGenerate}
           disabled={!orgId || generating}
@@ -147,7 +147,7 @@ function InsightsPage() {
             ...((!orgId || generating) ? styles.generateButtonDisabled : {}),
           }}
         >
-          {generating ? "⏳ Generating..." : "🔄 Generate New Insights"}
+          {generating ? "Generating..." : "Generate New Insights"}
         </button>
       </div>
 

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import PasswordStrengthIndicator, { isPasswordValid } from "./PasswordStrengthIndicator.js";
 
 function Register() {
   const navigate = useNavigate();
@@ -12,6 +13,9 @@ function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [submitHover, setSubmitHover] = useState(false);
+
+  const passwordValid = isPasswordValid(formData.password);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -20,6 +24,10 @@ function Register() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (!passwordValid) {
+      setError("Password does not meet security requirements. Please ensure your password meets all criteria.");
+      return;
+    }
     setLoading(true);
     setError("");
 
@@ -30,12 +38,17 @@ function Register() {
         body: JSON.stringify(formData),
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         alert("Registered successfully");
         navigate("/");
       } else {
-        const data = await res.json();
-        setError(data.message || "Registration failed");
+        if (data.error === "Password validation failed" && Array.isArray(data.details)) {
+          setError(data.details.join(". "));
+        } else {
+          setError(data.message || data.error || "Registration failed");
+        }
       }
     } catch (err) {
       setError("Network error. Please try again.");
@@ -58,8 +71,8 @@ function Register() {
                 <span style={styles.featureIcon}>A</span>
               </div>
               <div>
-                <h3 style={styles.featureTitle}>Real-time Analytics</h3>
-                <p style={styles.featureDesc}>Monitor your sensors in real-time</p>
+                <h3 style={styles.featureTitle}>AI-Powered Insights</h3>
+                <p style={styles.featureDesc}>Get intelligent analysis of your sensor data patterns</p>
               </div>
             </div>
             <div style={styles.featureItem}>
@@ -67,8 +80,8 @@ function Register() {
                 <span style={styles.featureIcon}>!</span>
               </div>
               <div>
-                <h3 style={styles.featureTitle}>Smart Alerts</h3>
-                <p style={styles.featureDesc}>Get notified of anomalies instantly</p>
+                <h3 style={styles.featureTitle}>Real-time Monitoring</h3>
+                <p style={styles.featureDesc}>Track temperature, humidity, and custom sensors live</p>
               </div>
             </div>
             <div style={styles.featureItem}>
@@ -76,8 +89,8 @@ function Register() {
                 <span style={styles.featureIcon}>H</span>
               </div>
               <div>
-                <h3 style={styles.featureTitle}>Historical Data</h3>
-                <p style={styles.featureDesc}>Analyze trends and patterns</p>
+                <h3 style={styles.featureTitle}>Smart Alerts</h3>
+                <p style={styles.featureDesc}>Automatic threshold detection and notifications</p>
               </div>
             </div>
           </div>
@@ -130,11 +143,12 @@ function Register() {
                 <input
                   type={showPassword ? "text" : "password"}
                   name="password"
-                  placeholder="Create a strong password"
+                  placeholder="Min. 8 characters"
                   value={formData.password}
                   onChange={handleChange}
-                  style={styles.input}
+                  style={{ ...styles.input, paddingRight: "56px", boxSizing: "border-box" }}
                   required
+                  aria-describedby="password-requirements"
                 />
                 <button
                   type="button"
@@ -145,27 +159,39 @@ function Register() {
                   {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
+              <div id="password-requirements">
+                <PasswordStrengthIndicator password={formData.password} />
+              </div>
             </div>
 
             <div style={styles.formGroup}>
-              <label style={styles.label}>Organization ID</label>
+              <label style={styles.label}>Organisation Name</label>
               <input
                 type="text"
                 name="org_id"
-                placeholder="Your organization ID"
+                placeholder="e.g. acme"
                 value={formData.org_id}
                 onChange={handleChange}
                 style={styles.input}
                 required
               />
+              <p style={styles.helperText}>Your unique workspace identifier</p>
             </div>
 
-            <button 
-              type="submit" 
-              style={styles.submitButton}
-              disabled={loading}
+            <button
+              type="submit"
+              style={
+                loading || !passwordValid
+                  ? { ...styles.submitButton, ...styles.submitButtonDisabled }
+                  : submitHover
+                    ? { ...styles.submitButton, ...styles.submitButtonHover }
+                    : styles.submitButton
+              }
+              disabled={loading || !passwordValid}
+              onMouseEnter={() => setSubmitHover(true)}
+              onMouseLeave={() => setSubmitHover(false)}
             >
-              {loading ? "Creating Account..." : "Create Account"}
+              {loading ? "Creating account..." : "Create Account"}
             </button>
           </form>
 
@@ -306,9 +332,11 @@ const styles = {
   form: {
     display: "flex",
     flexDirection: "column",
+    width: "100%",
   },
   formGroup: {
-    marginBottom: "24px",
+    marginBottom: "20px",
+    width: "100%",
   },
   label: {
     display: "block",
@@ -316,10 +344,17 @@ const styles = {
     fontWeight: "600",
     color: "#e2e8f0",
     marginBottom: "8px",
+    width: "100%",
+  },
+  helperText: {
+    fontSize: "12px",
+    color: "#9ca3af",
+    marginTop: "4px",
   },
   input: {
     width: "100%",
-    padding: "14px 16px",
+    boxSizing: "border-box",
+    padding: "12px 16px",
     fontSize: "15px",
     color: "#e2e8f0",
     backgroundColor: "#2a2a2a",
@@ -331,32 +366,39 @@ const styles = {
   },
   passwordWrapper: {
     position: "relative",
+    width: "100%",
   },
   togglePassword: {
     position: "absolute",
-    right: "14px",
+    right: "12px",
     top: "50%",
     transform: "translateY(-50%)",
     background: "none",
     border: "none",
-    color: "#94a3b8",
+    color: "#9ca3af",
     cursor: "pointer",
-    fontSize: "20px",
+    fontSize: "12px",
     padding: "4px",
   },
   submitButton: {
     width: "100%",
-    padding: "16px",
+    padding: "12px 16px",
     fontSize: "16px",
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#1a1a1a",
-    background: "linear-gradient(135deg, #FFFF66 0%, #FFE566 100%)",
+    backgroundColor: "#facc15",
     border: "none",
     borderRadius: "10px",
     cursor: "pointer",
-    transition: "all 0.3s",
-    boxShadow: "0 4px 12px rgba(255, 255, 102, 0.3)",
+    transition: "background-color 0.2s",
     marginTop: "8px",
+  },
+  submitButtonDisabled: {
+    opacity: 0.8,
+    cursor: "not-allowed",
+  },
+  submitButtonHover: {
+    backgroundColor: "#eab308",
   },
   footer: {
     marginTop: "32px",

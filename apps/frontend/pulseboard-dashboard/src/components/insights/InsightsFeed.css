@@ -1,0 +1,55 @@
+.insights-feed {
+  background: linear-gradient(135deg, #27272a 0%, #1f1f23 100%);
+  border: 1px solid #374151;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+}
+
+.insights-feed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.insights-feed-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.insights-refresh-btn {
+  padding: 8px 14px;
+  background: #27272a;
+  color: #f4f96b;
+  border: 1px solid #b3b347;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.insights-refresh-btn:hover {
+  background: #3f3f46;
+  border-color: #f4f96b;
+}
+
+.insights-empty {
+  padding: 1rem 0;
+}
+
+.insights-empty-text {
+  margin: 0 0 8px 0;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.insights-empty-hint {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.5;
+}

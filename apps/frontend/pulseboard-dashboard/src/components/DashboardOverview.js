@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@apollo/client";
 import { useAuth } from "../hooks/useAuth";
@@ -6,12 +6,17 @@ import { GET_DASHBOARD_STATS } from "../graphql/dashboard";
 import InsightsFeed from "./insights/InsightsFeed";
 import "./DashboardOverview.css";
 
+const PAGE_SIZE = 5;
+
 function DashboardOverview() {
   const navigate = useNavigate();
   const { orgId } = useAuth();
+  const [recentPage, setRecentPage] = useState(1);
 
   const { loading, error, data } = useQuery(GET_DASHBOARD_STATS, {
-    variables: { org_id: orgId },
+    variables: { org_id: orgId, recent_limit: 100 },
+    fetchPolicy: "network-only",
+    pollInterval: 30000,
   });
 
   const getStatusColor = (status) =>
@@ -27,16 +32,24 @@ function DashboardOverview() {
   const sensors = data.getSensors || [];
   const recent = data.recentlyAccessedSensors || [];
 
+  const totalRecentPages = Math.max(1, Math.ceil(recent.length / PAGE_SIZE));
+  const recentPaginated = recent.slice((recentPage - 1) * PAGE_SIZE, recentPage * PAGE_SIZE);
+
   const totalSensors = sensors.length;
   const activeSensors = sensors.filter((s) => s.status === "active").length;
   const alertsCount = sensors.filter((s) => s.status === "critical").length;
 
   return (
     <div className="dashboard-overview">
+      <p className="breadcrumb">
+        <a href="/dashboard" onClick={(e) => { e.preventDefault(); navigate("/dashboard"); }}>Home</a>
+        {" / Dashboard"}
+      </p>
       <div className="overview-header">
         <h2>Dashboard Overview</h2>
-        <button onClick={() => navigate("/sensors")} className="add-sensor-button">
-          + Add Sensor
+        <button onClick={() => navigate("/dashboard/sensors")} className="add-sensor-button">
+          <span className="add-sensor-icon" aria-hidden="true">+</span>
+          Add Sensor
         </button>
       </div>
 
@@ -79,9 +92,9 @@ function DashboardOverview() {
         <div className="recent-sensors-card">
           <div className="card-header">
             <h3>Recently Accessed Sensors</h3>
-            <a href="/dashboard/sensors" className="view-all-link">
+            <button type="button" className="view-all-link" onClick={() => navigate("/dashboard/sensors")}>
               View All
-            </a>
+            </button>
           </div>
 
           <table className="sensors-table">
@@ -99,16 +112,18 @@ function DashboardOverview() {
                 <tr>
                   <td colSpan="4" className="no-data">
                     No recent activity
+                    <span className="no-data-hint">Start by adding sensors or viewing the Sensors page</span>
                   </td>
                 </tr>
               ) : (
-                recent.map((sensor) => (
+                recentPaginated.map((sensor) => (
                   <tr key={sensor.id}>
                     <td>{sensor.name || sensor.type}</td>
                     <td>{sensor.type}</td>
                     <td>
                       <span
                         className="status-badge"
+                        data-status={(sensor.status || "").toLowerCase()}
                         style={{ color: getStatusColor(sensor.status) }}
                       >
                         {sensor.status}
@@ -127,6 +142,32 @@ function DashboardOverview() {
               )}
             </tbody>
           </table>
+
+          {recent.length > 0 && (
+            <div className="recent-pagination">
+              <button
+                type="button"
+                className="pagination-btn"
+                onClick={() => setRecentPage((p) => Math.max(1, p - 1))}
+                disabled={recentPage <= 1}
+                aria-label="Previous page"
+              >
+                Previous
+              </button>
+              <span className="pagination-info">
+                Page {recentPage} of {totalRecentPages}
+              </span>
+              <button
+                type="button"
+                className="pagination-btn"
+                onClick={() => setRecentPage((p) => Math.min(totalRecentPages, p + 1))}
+                disabled={recentPage >= totalRecentPages}
+                aria-label="Next page"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
