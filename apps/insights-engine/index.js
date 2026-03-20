@@ -135,8 +135,25 @@ app.get("/insights/:orgId", async (req, res) => {
   }
 });
 
+async function waitForDatabase(retries = 10, delayMs = 3000) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`🔄 Checking database connection (attempt ${attempt}/${retries})...`);
+      await testConnection();
+      return;
+    } catch (err) {
+      if (attempt === retries) {
+        console.error("❌ Database not ready after retries, giving up.");
+        throw err;
+      }
+      console.warn(`⚠️ Database not ready yet: ${err.message}. Retrying in ${delayMs}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+}
+
 async function start() {
-  await testConnection();
+  await waitForDatabase();
   app.listen(PORT, () => {
     console.log(`🚀 Insights engine running at http://localhost:${PORT}`);
     console.log(`   Database: ${DB_NAME} | NODE_ENV: ${NODE_ENV}`);

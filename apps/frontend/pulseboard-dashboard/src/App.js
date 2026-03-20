@@ -26,6 +26,7 @@ import SensorDetailsPage from "./components/Dashboard/SensorDetailsPage";
 import AlertsPage from "./components/Dashboard/AlertsPage";
 import InsightsPage from "./components/Dashboard/InsightsPage";
 import SettingsPage from "./components/Dashboard/SettingsPage";
+import Analytics from "./pages/Analytics";
 
 // Protected Route Component
 function ProtectedRoute({ children }) {
@@ -78,6 +79,7 @@ function AppRoutes() {
         <Route path="sensors" element={<SensorsPage />}/>
         <Route path="sensors/:id" element={<SensorDetailsPage />}/>
         <Route path="alerts" element={<AlertsPage />} />
+        <Route path="analytics" element={<Analytics />} />
         <Route path="insights" element={<InsightsPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

@@ -1,0 +1,257 @@
+.historical-trends {
+  background: #2a2a2a;
+  border-radius: 8px;
+  border: 1px solid #374151;
+  padding: 24px;
+}
+
+.historical-trends-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin: 0 0 16px 0;
+}
+
+.historical-trends-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.historical-trends-units {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.historical-trends-units label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.historical-trends-units select {
+  background: #1a1a1a;
+  color: #e2e8f0;
+  border: 1px solid #4b5563;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  min-width: 140px;
+}
+
+.historical-trends-units select:hover,
+.historical-trends-units select:focus {
+  border-color: #f4f96b;
+  outline: none;
+}
+
+.historical-trends-bulk {
+  display: flex;
+  gap: 8px;
+}
+
+.historical-trends-bulk button {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #4b5563;
+  background: #1a1a1a;
+  color: #9ca3af;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.historical-trends-bulk button:hover {
+  border-color: #f4f96b;
+  color: #f4f96b;
+}
+
+.historical-trends-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.historical-trends-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid #4b5563;
+  background: #1a1a1a;
+  color: #e2e8f0;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s, border-color 0.2s;
+}
+
+.historical-trends-chip.inactive {
+  opacity: 0.45;
+  border-color: #374151;
+}
+
+.historical-trends-chip-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.historical-trends-chart-wrap {
+  width: 100%;
+  min-height: 320px;
+}
+
+.historical-trends-skeleton {
+  width: 100%;
+  min-height: 400px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    #242424 0%,
+    #2f2f2f 50%,
+    #242424 100%
+  );
+  background-size: 200% 100%;
+  animation: hchart-shimmer 1.2s ease-in-out infinite;
+}
+
+@media (max-width: 1024px) {
+  .historical-trends-skeleton {
+    min-height: 350px;
+  }
+}
+
+@media (max-width: 768px) {
+  .historical-trends-skeleton {
+    min-height: 300px;
+  }
+
+  .historical-trends {
+    padding: 16px;
+  }
+
+  .historical-trends-title {
+    font-size: 1.1rem;
+  }
+}
+
+@keyframes hchart-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.historical-trends-empty {
+  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px 16px;
+  color: #9ca3af;
+  border-radius: 8px;
+  background: #242424;
+  border: 1px dashed #4b5563;
+}
+
+.historical-trends-empty strong {
+  display: block;
+  color: #e2e8f0;
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+.historical-trends-empty span {
+  font-size: 14px;
+  max-width: 360px;
+  line-height: 1.5;
+}
+
+.historical-trends-pending {
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  font-size: 14px;
+  text-align: center;
+  padding: 24px;
+}
+
+.hchart-tooltip {
+  background: #1f2937;
+  border: 1px solid #374151;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #e2e8f0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.hchart-tooltip-row + .hchart-tooltip-row {
+  margin-top: 6px;
+}
+
+.hchart-tooltip-time {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #374151;
+}
+
+.hchart-legend-custom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 16px;
+  padding-top: 8px;
+}
+
+.hchart-legend-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.hchart-legend-btn.inactive {
+  opacity: 0.4;
+}
+
+.hchart-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .hchart-legend-custom {
+    max-height: 120px;
+    overflow-y: auto;
+    justify-content: flex-start;
+  }
+}

@@ -197,6 +197,48 @@ const UpdateOrganizationResponseType = new GraphQLObjectType({
   }),
 });
 
+const AnalyticsTimeSeriesPointType = new GraphQLObjectType({
+  name: "AnalyticsTimeSeriesPoint",
+  fields: () => ({
+    timestamp: { type: new GraphQLNonNull(GraphQLString) },
+    sensorId: { type: new GraphQLNonNull(GraphQLInt) },
+    sensorName: { type: GraphQLString },
+    sensorType: { type: GraphQLString },
+    value: { type: GraphQLFloat },
+    unit: { type: GraphQLString },
+  }),
+});
+
+const AnalyticsSensorStatisticsType = new GraphQLObjectType({
+  name: "AnalyticsSensorStatistics",
+  fields: () => ({
+    sensorId: { type: new GraphQLNonNull(GraphQLInt) },
+    sensorName: { type: GraphQLString },
+    sensorType: { type: GraphQLString },
+    sensorUnit: { type: GraphQLString },
+    min: { type: GraphQLFloat },
+    max: { type: GraphQLFloat },
+    avg: { type: GraphQLFloat },
+    median: { type: GraphQLFloat },
+    stdDev: { type: GraphQLFloat },
+    dataPoints: { type: GraphQLInt },
+    missingDataPoints: { type: GraphQLInt },
+    outlierCount: { type: GraphQLInt },
+  }),
+});
+
+const AnalyticsDataType = new GraphQLObjectType({
+  name: "AnalyticsData",
+  fields: () => ({
+    totalDataPoints: { type: GraphQLInt },
+    averageUptime: { type: GraphQLFloat },
+    dataQualityScore: { type: GraphQLFloat },
+    alertRate: { type: GraphQLFloat },
+    timeSeries: { type: new GraphQLList(AnalyticsTimeSeriesPointType) },
+    statistics: { type: new GraphQLList(AnalyticsSensorStatisticsType) },
+  }),
+});
+
 /** Root Query */
 const RootQuery = new GraphQLObjectType({
   name: "RootQueryType",
@@ -534,6 +576,229 @@ const RootQuery = new GraphQLObjectType({
           email: row.email,
           organizationId: row.org_id,
           timezone: row.timezone || "UTC",
+        };
+      },
+    },
+    analyticsData: {
+      type: AnalyticsDataType,
+      args: {
+        orgId: { type: new GraphQLNonNull(GraphQLString) },
+        sensorIds: { type: new GraphQLList(new GraphQLNonNull(GraphQLInt)) },
+        startDate: { type: new GraphQLNonNull(GraphQLString) },
+        endDate: { type: new GraphQLNonNull(GraphQLString) },
+      },
+      resolve: async (
+        _,
+        { orgId, sensorIds, startDate, endDate },
+        context
+      ) => {
+        if (context?.user?.org_id && context.user.org_id !== orgId) {
+          throw new Error("Unauthorized: orgId does not match your organization");
+        }
+
+        const sensorsRes = await pool.query(
+          "SELECT id FROM sensors WHERE org_id = $1 AND delete_status = FALSE",
+          [orgId]
+        );
+        const allowedIds = new Set(sensorsRes.rows.map((r) => r.id));
+        let filterIds =
+          sensorIds?.length > 0
+            ? sensorIds.filter((id) => allowedIds.has(id))
+            : [...allowedIds];
+
+        if (filterIds.length === 0) {
+          return {
+            totalDataPoints: 0,
+            averageUptime: 0,
+            dataQualityScore: 0,
+            alertRate: 0,
+            timeSeries: [],
+            statistics: [],
+          };
+        }
+
+        const startD = new Date(startDate);
+        const endD = new Date(endDate);
+        if (Number.isNaN(startD.getTime()) || Number.isNaN(endD.getTime())) {
+          throw new Error("Invalid startDate or endDate");
+        }
+
+        const dayMs = 24 * 60 * 60 * 1000;
+        const inclusiveDays = Math.max(
+          1,
+          Math.floor((endD - startD) / dayMs) + 1
+        );
+        const hoursInRange = Math.max(1, inclusiveDays * 24);
+
+        const startIso = startD.toISOString();
+        const endIso = new Date(endD.getTime() + dayMs).toISOString();
+
+        const metricsBase = [
+          "org_id = $1",
+          "timestamp >= $2::timestamptz",
+          "timestamp < $3::timestamptz",
+        ];
+        const metricVals = [orgId, startIso, endIso];
+        metricsBase.push(`sensor_id = ANY($4::int[])`);
+        metricVals.push(filterIds);
+
+        const metricsWhere = metricsBase.join(" AND ");
+
+        const totalRes = await pool.query(
+          `SELECT COUNT(*)::int AS c FROM sensor_metrics WHERE ${metricsWhere}`,
+          metricVals
+        );
+        const totalDataPoints = totalRes.rows[0]?.c ?? 0;
+
+        const expectedReadings = filterIds.length * hoursInRange;
+        let averageUptime =
+          expectedReadings > 0
+            ? Math.min(100, (totalDataPoints / expectedReadings) * 100)
+            : 0;
+        averageUptime = Math.round(averageUptime * 100) / 100;
+
+        const metricsWhereM = [
+          "m.org_id = $1",
+          "m.timestamp >= $2::timestamptz",
+          "m.timestamp < $3::timestamptz",
+          "m.sensor_id = ANY($4::int[])",
+        ].join(" AND ");
+
+        const qualityRes = await pool.query(
+          `SELECT
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE m.value IS NULL)::int AS missing,
+            COUNT(*) FILTER (
+              WHERE s.id IS NOT NULL
+                AND s.min IS NOT NULL
+                AND s.max IS NOT NULL
+                AND (m.value < s.min OR m.value > s.max)
+            )::int AS outliers
+          FROM sensor_metrics m
+          LEFT JOIN sensors s ON m.sensor_id = s.id AND s.delete_status = FALSE
+          WHERE ${metricsWhereM}`,
+          metricVals
+        );
+
+        const rowQ = qualityRes.rows[0];
+        const { total = 0, missing = 0, outliers = 0 } = rowQ || {};
+        const missingRate = total > 0 ? missing / total : 0;
+        const outlierRate = total > 0 ? outliers / total : 0;
+        let dataQualityScore = (1 - missingRate - outlierRate) * 100;
+        dataQualityScore = Math.max(0, Math.min(100, Math.round(dataQualityScore * 100) / 100));
+
+        const alertWhere = ["org_id = $1", "created_at >= $2::timestamptz", "created_at < $3::timestamptz"];
+        const alertVals = [orgId, startIso, endIso];
+        alertWhere.push(`sensor_id = ANY($4::int[])`);
+        alertVals.push(filterIds);
+
+        const alertCountRes = await pool.query(
+          `SELECT COUNT(*)::int AS c FROM alerts WHERE ${alertWhere.join(" AND ")}`,
+          alertVals
+        );
+        const alertCount = alertCountRes.rows[0]?.c ?? 0;
+        const alertRate =
+          Math.round((alertCount / hoursInRange) * 10000) / 10000;
+
+        const bucketExpr =
+          inclusiveDays <= 7
+            ? "date_trunc('hour', m.timestamp)"
+            : inclusiveDays <= 30
+              ? "to_timestamp(floor(extract(epoch from m.timestamp) / 14400) * 14400)"
+              : "date_trunc('day', m.timestamp)";
+
+        const tsRes = await pool.query(
+          `
+          SELECT
+            ${bucketExpr} AS bucket,
+            m.sensor_id AS sensor_id,
+            MAX(COALESCE(NULLIF(TRIM(s.name), ''), s.type, 'Sensor')) AS sensor_name,
+            MAX(s.type) AS sensor_type,
+            MAX(s.unit) AS unit,
+            AVG(m.value)::float AS value
+          FROM sensor_metrics m
+          INNER JOIN sensors s ON m.sensor_id = s.id AND s.delete_status = FALSE
+          WHERE ${metricsWhereM}
+            AND m.value IS NOT NULL
+          GROUP BY bucket, m.sensor_id
+          ORDER BY bucket ASC, m.sensor_id ASC
+          `,
+          metricVals
+        );
+
+        const timeSeries = tsRes.rows.map((r) => ({
+          timestamp: r.bucket ? new Date(r.bucket).toISOString() : null,
+          sensorId: r.sensor_id,
+          sensorName: r.sensor_name,
+          sensorType: r.sensor_type,
+          value: r.value,
+          unit: r.unit ?? "",
+        })).filter((p) => p.timestamp);
+
+        const statsRes = await pool.query(
+          `
+          SELECT
+            s.id AS sensor_id,
+            COALESCE(NULLIF(TRIM(s.name), ''), s.type, 'Sensor') AS sensor_name,
+            s.type AS sensor_type,
+            s.unit AS sensor_unit,
+            agg.min_v,
+            agg.max_v,
+            agg.avg_v,
+            agg.median_v,
+            COALESCE(agg.std_dev_samp, 0)::float AS std_dev_samp,
+            COALESCE(agg.data_points, 0)::int AS data_points,
+            COALESCE(agg.missing_data_points, 0)::int AS missing_data_points,
+            COALESCE(agg.outlier_count, 0)::int AS outlier_count
+          FROM sensors s
+          LEFT JOIN (
+            SELECT
+              m.sensor_id AS sid,
+              MIN(m.value) AS min_v,
+              MAX(m.value) AS max_v,
+              AVG(m.value) AS avg_v,
+              PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY m.value) AS median_v,
+              STDDEV_SAMP(m.value) AS std_dev_samp,
+              COUNT(*) FILTER (WHERE m.value IS NOT NULL)::int AS data_points,
+              COUNT(*) FILTER (WHERE m.value IS NULL)::int AS missing_data_points,
+              COUNT(*) FILTER (
+                WHERE s2.min IS NOT NULL AND s2.max IS NOT NULL
+                  AND m.value IS NOT NULL
+                  AND (m.value < s2.min OR m.value > s2.max)
+              )::int AS outlier_count
+            FROM sensor_metrics m
+            INNER JOIN sensors s2 ON m.sensor_id = s2.id AND s2.delete_status = FALSE
+            WHERE ${metricsWhereM}
+            GROUP BY m.sensor_id
+          ) agg ON agg.sid = s.id
+          WHERE s.org_id = $1 AND s.delete_status = FALSE AND s.id = ANY($4::int[])
+          ORDER BY sensor_name ASC, s.id ASC
+          `,
+          metricVals
+        );
+
+        const statistics = statsRes.rows.map((r) => ({
+          sensorId: r.sensor_id,
+          sensorName: r.sensor_name,
+          sensorType: r.sensor_type,
+          sensorUnit: r.sensor_unit ?? "",
+          min: r.min_v != null ? Number(r.min_v) : null,
+          max: r.max_v != null ? Number(r.max_v) : null,
+          avg: r.avg_v != null ? Number(r.avg_v) : null,
+          median: r.median_v != null ? Number(r.median_v) : null,
+          stdDev: r.std_dev_samp != null ? Number(r.std_dev_samp) : 0,
+          dataPoints: r.data_points ?? 0,
+          missingDataPoints: r.missing_data_points ?? 0,
+          outlierCount: r.outlier_count ?? 0,
+        }));
+
+        return {
+          totalDataPoints,
+          averageUptime,
+          dataQualityScore,
+          alertRate,
+          timeSeries,
+          statistics,
         };
       },
     },
