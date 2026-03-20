@@ -27,7 +27,7 @@ async function testConnection() {
     return true;
   } catch (err) {
     console.error("❌ Database connection failed:", err.message);
-    process.exit(1);
+    throw err;
   } finally {
     client.release();
   }
