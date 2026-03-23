@@ -1,84 +1,145 @@
-require('dotenv').config();
-const chalk = require('chalk');
-const simulateSensorData = require('./src/simulate');
-const { connectProducer, sendSensorData } = require('./src/publisher');
-const pool = require('./db');
+require("dotenv").config();
+const chalk = require("chalk");
+const simulateSensorData = require("./src/simulate");
+const { connectProducer, sendSensorData } = require("./src/publisher");
+const pool = require("./db");
+
+const REFRESH_MS = parseInt(process.env.SENSOR_REFRESH_INTERVAL_MS || "30000", 10);
+const DATA_INTERVAL_MS = parseInt(process.env.SENSOR_DATA_INTERVAL_MS || "3000", 10);
 
 /**
- * Get all individual sensors that need data generation
- * Returns array of { id, org_id, name, type, min, max, unit }
+ * Active sensors for data generation (non-deleted, active status).
+ * Uses a container so the generation loop always reads the latest array reference.
  */
-async function getAllSensors() {
+const sensorState = { list: [] };
+
+let refreshInFlight = false;
+
+/**
+ * Load sensors from DB. Only active rows generate data.
+ */
+async function fetchActiveSensors() {
+  const result = await pool.query(`
+    SELECT id, org_id, name, type, min, max, unit, status
+    FROM sensors
+    WHERE COALESCE(delete_status, FALSE) = FALSE
+      AND (
+        status IS NULL
+        OR TRIM(status) = ''
+        OR LOWER(TRIM(status)) = 'active'
+      )
+    ORDER BY org_id, id
+  `);
+  return result.rows;
+}
+
+function applySensorDiff(prevList, nextList) {
+  const prevIds = new Set(prevList.map((s) => s.id));
+  const nextIds = new Set(nextList.map((s) => s.id));
+  const added = nextList.filter((s) => !prevIds.has(s.id));
+  const removed = prevList.filter((s) => !nextIds.has(s.id));
+  return { added, removed };
+}
+
+async function refreshSensors(reason) {
+  if (refreshInFlight) return;
+  refreshInFlight = true;
   try {
-    const result = await pool.query(`
-      SELECT id, org_id, name, type, min, max, unit
-      FROM sensors
-      WHERE delete_status = FALSE
-      ORDER BY org_id, id
-    `);
-    
-    return result.rows;
-  } catch (error) {
-    console.error(chalk.red('Error fetching sensors:'), error);
-    return [];
+    let rows;
+    try {
+      rows = await fetchActiveSensors();
+    } catch (error) {
+      console.error(
+        chalk.red(`[sensor-simulator] Sensor refresh failed (${reason}):`),
+        error.message || error
+      );
+      return;
+    }
+
+    const prev = sensorState.list;
+    const { added, removed } = applySensorDiff(prev, rows);
+
+    sensorState.list = rows;
+
+    if (reason === "initial") {
+      console.log(
+        chalk.green(
+          `[sensor-simulator] Initial load: ${rows.length} active sensor(s)`
+        )
+      );
+    } else if (added.length || removed.length) {
+      console.log(
+        chalk.yellow(
+          `[sensor-simulator] Sensor list updated (${reason}): +${added.length} / -${removed.length}`
+        )
+      );
+      added.forEach((s) =>
+        console.log(
+          chalk.cyan(
+            `   + id=${s.id} org=${s.org_id} ${s.name || s.type} (${s.type})`
+          )
+        )
+      );
+      removed.forEach((s) =>
+        console.log(
+          chalk.gray(
+            `   - id=${s.id} org=${s.org_id} ${s.name || s.type} (${s.type})`
+          )
+        )
+      );
+    }
+  } finally {
+    refreshInFlight = false;
   }
 }
 
 async function main() {
-  console.log(chalk.blueBright('🚀 Starting sensor simulator for all organizations...'));
+  console.log(
+    chalk.blueBright(
+      `🚀 Sensor simulator — data every ${DATA_INTERVAL_MS}ms, DB refresh every ${REFRESH_MS}ms`
+    )
+  );
 
   await connectProducer();
 
-  // Initial fetch of all sensors
-  let allSensors = await getAllSensors();
-  console.log(chalk.green(`✅ Found ${allSensors.length} sensor(s) to generate data for:`));
-  const sensorsByOrg = {};
-  allSensors.forEach(sensor => {
-    if (!sensorsByOrg[sensor.org_id]) {
-      sensorsByOrg[sensor.org_id] = [];
-    }
-    sensorsByOrg[sensor.org_id].push(sensor);
-    console.log(chalk.cyan(`   - ${sensor.org_id}: ${sensor.name} (${sensor.type})`));
+  await refreshSensors("initial");
+
+  sensorState.list.forEach((sensor) => {
+    console.log(
+      chalk.cyan(
+        `   - ${sensor.org_id}: ${sensor.name || "(unnamed)"} (${sensor.type}) id=${sensor.id}`
+      )
+    );
   });
 
-  // Refresh sensor list every 30 seconds to pick up new sensors
-  setInterval(async () => {
-    allSensors = await getAllSensors();
-    const newSensorsByOrg = {};
-    allSensors.forEach(sensor => {
-      if (!newSensorsByOrg[sensor.org_id]) {
-        newSensorsByOrg[sensor.org_id] = [];
-      }
-      newSensorsByOrg[sensor.org_id].push(sensor);
-    });
-    Object.keys(newSensorsByOrg).forEach(orgId => {
-      if (sensorsByOrg[orgId]?.length !== newSensorsByOrg[orgId].length) {
-        console.log(chalk.yellow(`📊 Updated sensor list for ${orgId}: ${newSensorsByOrg[orgId].length} sensor(s)`));
-      }
-    });
-    Object.assign(sensorsByOrg, newSensorsByOrg);
-  }, 30000);
+  setInterval(() => {
+    refreshSensors("interval").catch((e) =>
+      console.error(chalk.red("[sensor-simulator] refresh error:"), e)
+    );
+  }, REFRESH_MS);
 
-  // Generate and send data every 3 seconds
   setInterval(async () => {
-    for (const sensor of allSensors) {
-      // Generate data for each individual sensor
+    const sensors = sensorState.list;
+    if (sensors.length === 0) {
+      return;
+    }
+    for (const sensor of sensors) {
       const simulatedData = simulateSensorData(
-        sensor.org_id, 
-        sensor.type, 
+        sensor.org_id,
+        sensor.type,
         {
           min: sensor.min,
           max: sensor.max,
-          unit: sensor.unit
+          unit: sensor.unit,
         },
-        sensor.id // Pass sensor ID
+        sensor.id
       );
 
       for (const reading of simulatedData) {
         await sendSensorData(reading);
       }
     }
-  }, 3000); // every 3s
+  }, DATA_INTERVAL_MS);
 }
 
 main().catch(console.error);
