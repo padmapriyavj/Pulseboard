@@ -3,7 +3,27 @@ import { useQuery, useMutation } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { GET_SENSORS, ADD_SENSOR, UPDATE_SENSOR, DELETE_SENSOR } from "../../graphql/sensors";
 import sensorMetadata from "../sensorMeta";
+import { getSensorRange } from "../../config/sensorRanges";
 import { useAuth } from "../../hooks/useAuth";
+
+function InfoIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4M12 8h.01" />
+    </svg>
+  );
+}
 
 const SensorsPage = () => {
   const { orgId, loading: authLoading } = useAuth(); 
@@ -151,6 +171,25 @@ const SensorsPage = () => {
   };
 
   const unit = selectedSensor ? sensorMetadata[selectedSensor]?.unit : "";
+  const addRange = getSensorRange(selectedSensor);
+
+  const parseThreshold = (v) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const applyTypicalRangeForAdd = () => {
+    if (!addRange) return;
+    setMin(String(addRange.min));
+    setMax(String(addRange.max));
+  };
+
+  const minNum = parseThreshold(min);
+  const maxNum = parseThreshold(max);
+  const showMinBelowTypical =
+    addRange && minNum !== null && minNum < addRange.min;
+  const showMaxAboveTypical =
+    addRange && maxNum !== null && maxNum > addRange.max;
 
   // Handle sorting
   const handleSort = (key) => {
@@ -230,6 +269,10 @@ const SensorsPage = () => {
         .sensor-add-button:hover {
           background-color: #e6e600 !important;
         }
+        .sensor-typical-range-button:hover {
+          color: #ffff99 !important;
+          text-decoration: underline;
+        }
         .sortable-header {
           cursor: pointer;
           user-select: none;
@@ -242,68 +285,157 @@ const SensorsPage = () => {
           color: #fff !important;
           background-color: #3a3a3a !important;
         }
+        .add-sensor-form-row-top,
+        .add-sensor-form-row-bottom {
+          width: 100%;
+          box-sizing: border-box;
+          column-gap: 1.5rem !important;
+          row-gap: 1rem !important;
+        }
+        @media (max-width: 768px) {
+          .add-sensor-form-row-bottom {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+          .add-sensor-form-row-bottom .sensor-add-button {
+            grid-column: 1 / -1;
+            justify-self: start;
+          }
+        }
+        @media (max-width: 480px) {
+          .add-sensor-form-row-top {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+          .add-sensor-form-row-bottom {
+            grid-template-columns: minmax(0, 1fr) !important;
+          }
+        }
       `}</style>
       <h2 style={styles.title}>Manage Sensors</h2>
 
       <div style={styles.formSection}>
         <h3 style={styles.sectionTitle}>Add New Sensor</h3>
-      <div style={styles.form}>
+        <div style={styles.addFormRowTop} className="add-sensor-form-row-top">
           <input
             type="text"
             placeholder="Sensor Name (optional)"
-            style={styles.input}
+            style={styles.inputGrid}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
 
-        <select
-          style={styles.input}
-          value={selectedSensor}
-          onChange={(e) => setSelectedSensor(e.target.value)}
-        >
-          <option value="">Select Sensor Type</option>
-          {Object.keys(sensorMetadata).map((sensor) => (
-            <option key={sensor} value={sensor}>
-              {sensor.charAt(0).toUpperCase() + sensor.slice(1)}
-            </option>
-          ))}
-        </select>
+          <select
+            style={styles.inputGrid}
+            value={selectedSensor}
+            onChange={(e) => setSelectedSensor(e.target.value)}
+          >
+            <option value="">Select Sensor Type</option>
+            {Object.keys(sensorMetadata).map((sensor) => (
+              <option key={sensor} value={sensor}>
+                {sensor.charAt(0).toUpperCase() + sensor.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <input
-          type="number"
-          placeholder="Min Value"
-          style={styles.input}
-          value={min}
-          onChange={(e) => setMin(e.target.value)}
-        />
-        <input
-          type="number"
-          placeholder="Max Value"
-          style={styles.input}
-          value={max}
-          onChange={(e) => setMax(e.target.value)}
-        />
+        {selectedSensor && addRange && (
+          <div style={styles.rangeHintRow}>
+            <span style={styles.rangeHintIcon}>
+              <InfoIcon />
+            </span>
+            <span style={styles.rangeHintText}>
+              {addRange.kind === "boolean" ? (
+                addRange.helper
+              ) : (
+                <>
+                  Typical range: {addRange.min}–{addRange.max} {addRange.unit}. You can set
+                  custom thresholds.
+                </>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={applyTypicalRangeForAdd}
+              style={styles.typicalRangeButton}
+              className="sensor-typical-range-button"
+            >
+              Use typical range
+            </button>
+          </div>
+        )}
 
-        <input
-          type="text"
-          value={unit}
-          readOnly
-            style={{ ...styles.input, backgroundColor: "#3a3a3a", cursor: "not-allowed" }}
-          placeholder="Unit"
-        />
+        <div style={styles.addFormRowBottom} className="add-sensor-form-row-bottom">
+          <div style={styles.fieldCol}>
+            <input
+              type="number"
+              step="any"
+              placeholder={
+                addRange
+                  ? `e.g., ${addRange.min}`
+                  : "Min Value"
+              }
+              style={styles.inputGrid}
+              value={min}
+              onChange={(e) => setMin(e.target.value)}
+            />
+            {showMinBelowTypical && (
+              <div style={styles.softWarning}>
+                ⚠️ Below typical minimum (
+                {addRange.min}
+                {addRange.kind === "boolean" ? "" : ` ${addRange.unit}`})
+              </div>
+            )}
+          </div>
+          <div style={styles.fieldCol}>
+            <input
+              type="number"
+              step="any"
+              placeholder={
+                addRange
+                  ? `e.g., ${addRange.max}`
+                  : "Max Value"
+              }
+              style={styles.inputGrid}
+              value={max}
+              onChange={(e) => setMax(e.target.value)}
+            />
+            {showMaxAboveTypical && (
+              <div style={styles.softWarning}>
+                ⚠️ Above typical maximum (
+                {addRange.max}
+                {addRange.kind === "boolean" ? "" : ` ${addRange.unit}`})
+              </div>
+            )}
+          </div>
 
-        <select
-          value={status}
-          style={styles.input}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
+          <input
+            type="text"
+            value={unit}
+            readOnly
+            style={{
+              ...styles.inputGrid,
+              backgroundColor: "#3a3a3a",
+              cursor: "not-allowed",
+            }}
+            placeholder="Unit"
+          />
 
-          <button onClick={handleAddSensor} style={styles.button} className="sensor-add-button">
+          <select
+            value={status}
+            style={styles.inputGrid}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+
+          <button
+            type="button"
+            onClick={handleAddSensor}
+            style={styles.addSensorSubmit}
+            className="sensor-add-button"
+          >
             Add Sensor
-        </button>
+          </button>
         </div>
       </div>
 
@@ -568,6 +700,100 @@ const styles = {
     display: "flex",
     flexWrap: "wrap",
     gap: "1rem",
+    alignItems: "flex-start",
+  },
+  addFormRowTop: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: "1.5rem",
+    columnGap: "1.5rem",
+    rowGap: "1rem",
+    alignItems: "start",
+    width: "100%",
+    boxSizing: "border-box",
+  },
+  addFormRowBottom: {
+    display: "grid",
+    gridTemplateColumns:
+      "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 7rem) minmax(0, 8.5rem) auto",
+    gap: "1.5rem",
+    columnGap: "1.5rem",
+    rowGap: "1rem",
+    alignItems: "start",
+    width: "100%",
+    boxSizing: "border-box",
+    marginTop: "0.25rem",
+  },
+  inputGrid: {
+    padding: "0.75rem",
+    borderRadius: "6px",
+    border: "1px solid #B3B347",
+    backgroundColor: "#2a2a2a",
+    color: "#fff",
+    fontSize: "14px",
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
+    height: "auto",
+    minHeight: "2.75rem",
+  },
+  addSensorSubmit: {
+    padding: "0.75rem 1.5rem",
+    backgroundColor: "#FFFF66",
+    color: "#1a1a1a",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer",
+    fontWeight: "600",
+    fontSize: "14px",
+    transition: "background-color 0.2s",
+    whiteSpace: "nowrap",
+    alignSelf: "start",
+    minHeight: "2.75rem",
+  },
+  rangeHintRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: "0.5rem",
+    marginTop: "0.5rem",
+    marginBottom: "0.75rem",
+    fontSize: "13px",
+    lineHeight: 1.45,
+    color: "#9ca3af",
+    maxWidth: "100%",
+  },
+  rangeHintIcon: {
+    display: "inline-flex",
+    color: "#9ca3af",
+    flexShrink: 0,
+  },
+  rangeHintText: {
+    flex: "1 1 200px",
+    minWidth: 0,
+  },
+  typicalRangeButton: {
+    background: "none",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: 600,
+    color: "#FFFF66",
+    textDecoration: "none",
+    flexShrink: 0,
+  },
+  fieldCol: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.25rem",
+    minWidth: 0,
+    alignSelf: "start",
+  },
+  softWarning: {
+    fontSize: "12px",
+    color: "#facc15",
+    marginLeft: "2px",
   },
   input: {
     padding: "0.75rem",
